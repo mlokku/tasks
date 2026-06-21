@@ -6,23 +6,39 @@
 {% block content %}
   <section class="dashboard-head">
     <div>
-      <h1>Project tracker</h1>
-      <p>Projects, next actions, blocked work, and due dates in one place.</p>
+      <h1>Command center</h1>
+      <p>Capture, plan, and work from the tasks that are actually available now.</p>
     </div>
     <div class="actions">
+      <a class="button secondary" href="{% url 'area_create' %}">New area</a>
       <a class="button secondary" href="{% url 'project_create' %}">New project</a>
-      <a class="button" href="{% url 'task_create' %}">New task</a>
+      <a class="button" href="{% url 'inbox' %}">Capture</a>
     </div>
+  </section>
+
+  <section class="stats-grid">
+    <a class="stat" href="{% url 'inbox' %}"><strong>{{ inbox_count }}</strong><span>Inbox</span></a>
+    <a class="stat" href="{% url 'day' %}"><strong>{{ due_count }}</strong><span>Due now</span></a>
+    <a class="stat" href="{% url 'up_next' %}"><strong>{{ up_next_count }}</strong><span>Up Next</span></a>
   </section>
 
   <section class="layout">
     <aside class="sidebar">
-      <div class="section-title">Projects</div>
+      <div class="section-title">Areas</div>
+      {% for area in areas %}
+        <div class="project-row">
+          <span><strong>{{ area.name }}</strong><small>{{ area.project_count }} projects{% if area.is_default %} · default{% endif %}</small></span>
+        </div>
+      {% empty %}
+        <p class="empty">No areas yet.</p>
+      {% endfor %}
+
+      <div class="section-title spaced">Projects</div>
       {% for project in projects %}
         <a class="project-row" href="{{ project.get_absolute_url }}">
           <span>
             <strong>{{ project.name }}</strong>
-            <small>{{ project.get_status_display }}</small>
+            <small>{% if project.area %}{{ project.area.name }} · {% endif %}{{ project.get_status_display }}</small>
           </span>
           <span class="count">{{ project.open_tasks }}</span>
         </a>
@@ -39,14 +55,13 @@
             <article class="task-card {% if task.is_overdue %}overdue{% endif %}">
               <a href="{{ task.get_absolute_url }}"><strong>{{ task.title }}</strong></a>
               <div class="meta">
-                <span>{{ task.project.name }}</span>
-                <span>Priority {{ task.get_priority_display }}</span>
+                {% if task.project %}<span>{{ task.project.name }}</span>{% elif task.area %}<span>{{ task.area.name }}</span>{% endif %}
+                <span>{{ task.get_eisenhower_display }}</span>
               </div>
-              {% if task.due_date %}
-                <div class="due">Due {{ task.due_date }}</div>
-              {% endif %}
+              {% if task.due_date %}<div class="due">Due {{ task.due_date }}</div>{% endif %}
               <form method="post" action="{% url 'task_complete' task.pk %}">
                 {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.path }}">
                 <button type="submit" class="small">Done</button>
               </form>
             </article>
