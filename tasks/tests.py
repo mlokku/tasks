@@ -4,6 +4,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from .models import Project, Task
+from .views import DEV_USERNAME
 
 
 class TaskModelTests(TestCase):
@@ -47,17 +48,16 @@ class TaskModelTests(TestCase):
 
 class DashboardTests(TestCase):
     def setUp(self):
-        self.user = get_user_model().objects.create_user("alex", password="password")
+        self.local_user = get_user_model().objects.create_user(DEV_USERNAME)
         self.other_user = get_user_model().objects.create_user("sam", password="password")
-        self.project = Project.objects.create(owner=self.user, name="Homelab")
+        self.project = Project.objects.create(owner=self.local_user, name="Homelab")
         other_project = Project.objects.create(owner=self.other_user, name="Private")
-        Task.objects.create(owner=self.user, project=self.project, title="Visible task")
+        Task.objects.create(owner=self.local_user, project=self.project, title="Visible task")
         Task.objects.create(owner=self.other_user, project=other_project, title="Hidden task")
 
-    def test_dashboard_only_shows_current_users_tasks(self):
-        self.client.login(username="alex", password="password")
-
+    def test_dashboard_shows_local_development_tasks_without_login(self):
         response = self.client.get(reverse("dashboard"))
 
+        self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Visible task")
         self.assertNotContains(response, "Hidden task")

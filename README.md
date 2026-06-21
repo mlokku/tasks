@@ -4,7 +4,7 @@ A small Django project/task tracker intended for self-hosting on a VPS. The app 
 
 ## Features
 
-- User login via Django auth
+- Temporary no-login development mode using a local owner account
 - Projects with active, paused, done, and archived states
 - Tasks with backlog, next, doing, waiting, and done states
 - Priority, due dates, notes, overdue highlighting, and completion timestamps
@@ -17,16 +17,9 @@ A small Django project/task tracker intended for self-hosting on a VPS. The app 
 ./run-dev.sh
 ```
 
-On first setup, create your login account in another terminal:
+Open `http://127.0.0.1:8000/` and start using the tracker. Authentication is intentionally deferred while the app shape is still being built.
 
-```bash
-. .venv/bin/activate
-python manage.py createsuperuser
-```
-
-Open `http://127.0.0.1:8000/` and log in with the superuser account.
-
-The startup script creates `.venv` when needed, installs requirements, runs migrations, and starts `runserver`. You can override defaults with environment variables, for example `PORT=8080 INSTALL_DEPS=0 ./run-dev.sh`.
+The startup script creates `.venv` when needed, installs requirements, runs migrations, and starts `runserver`. It also traps `SIGINT` and `SIGTERM` so the Django child process is shut down cleanly. You can override defaults with environment variables, for example `PORT=8080 INSTALL_DEPS=0 ./run-dev.sh`.
 
 ## Verification
 

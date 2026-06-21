@@ -1,18 +1,30 @@
-from django.contrib.auth.decorators import login_required
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth import get_user_model
 from django.db.models import Count, Q
-from django.shortcuts import get_object_or_404, redirect
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.views.generic import CreateView, DetailView, UpdateView
 
 from .forms import ProjectForm, TaskForm
 from .models import Project, Task
 
+DEV_USERNAME = "local"
 
-@login_required
+
+def get_owner(request):
+    if request.user.is_authenticated:
+        return request.user
+
+    user, created = get_user_model().objects.get_or_create(username=DEV_USERNAME)
+    if created:
+        user.set_unusable_password()
+        user.save(update_fields=["password"])
+    return user
+
+
 def dashboard(request):
+    owner = get_owner(request)
     projects = (
-        Project.objects.filter(owner=request.user)
+        Project.objects.filter(owner=owner)
         .exclude(status=Project.STATUS_ARCHIVED)
         .annotate(
             open_tasks=Count("tasks", filter=~Q(tasks__status=Task.STATUS_DONE)),
@@ -20,7 +32,7 @@ def dashboard(request):
         )
     )
     tasks = (
-        Task.objects.filter(owner=request.user)
+        Task.objects.filter(owner=owner)
         .exclude(status=Task.STATUS_DONE)
         .select_related("project")
     )
@@ -29,12 +41,6 @@ def dashboard(request):
         for status, _label in Task.STATUS_CHOICES
         if status != Task.STATUS_DONE
     }
-    return render_dashboard(request, projects, grouped_tasks)
-
-
-def render_dashboard(request, projects, grouped_tasks):
-    from django.shortcuts import render
-
     return render(
         request,
         "tasks/dashboard.html",
@@ -46,20 +52,20 @@ def render_dashboard(request, projects, grouped_tasks):
     )
 
 
-class OwnedQuerysetMixin(LoginRequiredMixin):
+class OwnedQuerysetMixin:
     model = None
 
     def get_queryset(self):
-        return self.model.objects.filter(owner=self.request.user)
+        return self.model.objects.filter(owner=get_owner(self.request))
 
 
-class ProjectCreateView(LoginRequiredMixin, CreateView):
+class ProjectCreateView(CreateView):
     model = Project
     form_class = ProjectForm
     template_name = "tasks/project_form.html"
 
     def form_valid(self, form):
-        form.instance.owner = self.request.user
+        form.instance.owner = get_owner(self.request)
         return super().form_valid(form)
 
 
@@ -69,7 +75,7 @@ class ProjectDetailView(OwnedQuerysetMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["tasks"] = self.object.tasks.filter(owner=self.request.user)
+        context["tasks"] = self.object.tasks.filter(owner=get_owner(self.request))
         return context
 
 
@@ -79,7 +85,7 @@ class ProjectUpdateView(OwnedQuerysetMixin, UpdateView):
     template_name = "tasks/project_form.html"
 
 
-class TaskCreateView(LoginRequiredMixin, CreateView):
+class TaskCreateView(CreateView):
     model = Task
     form_class = TaskForm
     template_name = "tasks/task_form.html"
@@ -94,11 +100,11 @@ class TaskCreateView(LoginRequiredMixin, CreateView):
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
-        kwargs["owner"] = self.request.user
+        kwargs["owner"] = get_owner(self.request)
         return kwargs
 
     def form_valid(self, form):
-        form.instance.owner = self.request.user
+        form.instance.owner = get_owner(self.request)
         return super().form_valid(form)
 
 
@@ -120,13 +126,12 @@ class TaskUpdateView(OwnedQuerysetMixin, UpdateView):
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
-        kwargs["owner"] = self.request.user
+        kwargs["owner"] = get_owner(self.request)
         return kwargs
 
 
-@login_required
 def complete_task(request, pk):
-    task = get_object_or_404(Task, pk=pk, owner=request.user)
+    task = get_object_or_404(Task, pk=pk, owner=get_owner(request))
     if request.method == "POST":
         task.status = Task.STATUS_DONE
         task.save(update_fields=["status", "completed_at", "updated_at"])
