@@ -5,6 +5,16 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Tracker{% endblock %}</title>
+  <script>
+    (function () {
+      var storedTheme = localStorage.getItem('theme');
+      var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (storedTheme === 'dark' || (!storedTheme && prefersDark)) {
+        document.documentElement.classList.add('dark');
+      }
+    })();
+  </script>
+  <link rel="stylesheet" href="{% static 'css/palette.css' %}">
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
 </head>
 <body>
@@ -17,6 +27,7 @@
       <a href="{% url 'weekly_review' %}">Review</a>
       <a href="{% url 'project_create' %}">New project</a>
       <a href="{% url 'task_create' %}">New task</a>
+      <button type="button" class="theme-toggle" data-theme-toggle aria-label="Toggle color theme">Theme</button>
       {% if user.is_authenticated %}
         <form method="post" action="{% url 'logout' %}" class="inline-form">
           {% csrf_token %}
@@ -36,5 +47,22 @@
     {% endif %}
     {% block content %}{% endblock %}
   </main>
+  <script>
+    (function () {
+      var toggle = document.querySelector('[data-theme-toggle]');
+      if (!toggle) return;
+
+      var applyLabel = function () {
+        toggle.textContent = document.documentElement.classList.contains('dark') ? 'Light mode' : 'Dark mode';
+      };
+
+      applyLabel();
+      toggle.addEventListener('click', function () {
+        var isDark = document.documentElement.classList.toggle('dark');
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        applyLabel();
+      });
+    })();
+  </script>
 </body>
 </html>

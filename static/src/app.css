@@ -1,0 +1,319 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply box-border;
+  }
+
+  html {
+    @apply min-h-full bg-app-bg text-fg-primary;
+  }
+
+  body {
+    @apply m-0 min-h-full bg-app-bg font-sans text-fg-primary antialiased;
+  }
+
+  a {
+    @apply text-inherit no-underline transition-colors duration-150;
+  }
+
+  h1,
+  h2,
+  p {
+    @apply mt-0;
+  }
+
+  h1 {
+    @apply mb-1 text-3xl font-extrabold tracking-normal text-fg-primary md:text-4xl;
+  }
+
+  h2 {
+    @apply text-base font-extrabold text-fg-primary;
+  }
+
+  p {
+    @apply text-fg-secondary;
+  }
+
+  input,
+  select,
+  textarea {
+    @apply w-full rounded-md border border-line bg-[var(--color-input-background)] px-3 py-2 font-sans text-[var(--color-input-text)] outline-none transition duration-150 placeholder:text-[var(--color-input-placeholder)];
+  }
+
+  input:focus,
+  select:focus,
+  textarea:focus {
+    @apply border-[var(--color-input-border-focus)];
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-input-border-focus) 20%, transparent);
+  }
+
+  textarea {
+    @apply resize-y;
+  }
+
+  select[multiple] {
+    @apply min-h-36;
+  }
+}
+
+@layer components {
+  .button,
+  button {
+    @apply inline-flex min-h-10 cursor-pointer items-center justify-center rounded-md border-0 bg-[var(--color-button-primary-background)] px-4 text-sm font-bold text-[var(--color-button-primary-text)] shadow-sm transition duration-150;
+  }
+
+  .button:hover,
+  button:hover {
+    @apply bg-[var(--color-button-primary-background-hover)];
+  }
+
+  .button:active,
+  button:active {
+    @apply bg-[var(--color-button-primary-background-pressed)];
+  }
+
+  .button.secondary,
+  button.secondary {
+    @apply bg-[var(--color-button-secondary-background)] text-[var(--color-button-secondary-text)];
+  }
+
+  .button.secondary:hover,
+  button.secondary:hover {
+    @apply bg-[var(--color-button-secondary-background-hover)];
+  }
+
+  .button.secondary:active,
+  button.secondary:active {
+    @apply bg-[var(--color-button-secondary-background-pressed)];
+  }
+
+  .small {
+    @apply min-h-8 px-3 text-sm;
+  }
+
+  .topbar {
+    @apply sticky top-0 z-10 flex min-h-16 items-center justify-between gap-4 border-b border-line-subtle bg-app-surface px-5 shadow-sm backdrop-blur md:px-6;
+  }
+
+  .brand {
+    @apply rounded-md px-2 py-1 text-lg font-extrabold text-fg-primary hover:bg-app-hover;
+  }
+
+  .nav,
+  .actions,
+  .meta,
+  .row-meta,
+  .tags {
+    @apply flex flex-wrap items-center gap-3;
+  }
+
+  .nav a,
+  .link-button {
+    @apply rounded-md px-2 py-1 text-sm font-bold text-fg-secondary hover:bg-app-hover hover:text-fg-primary;
+  }
+
+  .link-button {
+    @apply min-h-0 bg-transparent p-0 shadow-none;
+  }
+
+  .link-button:hover,
+  .link-button:active {
+    @apply bg-transparent text-fg-primary;
+  }
+
+  .theme-toggle {
+    @apply rounded-md border border-line bg-app-elevated px-3 py-1.5 text-sm font-bold text-fg-secondary hover:bg-app-hover hover:text-fg-primary;
+  }
+
+  .page {
+    @apply mx-auto w-full max-w-[1440px] px-4 py-5 md:px-6;
+  }
+
+  .dashboard-head,
+  .detail-head {
+    @apply mb-5 flex items-start justify-between gap-4;
+  }
+
+  .layout {
+    @apply grid items-start gap-4 lg:grid-cols-[280px_1fr];
+  }
+
+  .sidebar,
+  .column,
+  .form-panel,
+  .auth-panel,
+  .list,
+  .stat {
+    @apply rounded-smooth border border-line-subtle bg-app-surface shadow-sm;
+  }
+
+  .sidebar,
+  .form-panel,
+  .auth-panel,
+  .list {
+    @apply p-4;
+  }
+
+  .section-title {
+    @apply mb-3 text-xs font-extrabold uppercase tracking-wide text-fg-tertiary;
+  }
+
+  .project-row {
+    @apply flex items-center justify-between gap-3 border-t border-line-subtle py-3;
+  }
+
+  .project-row:hover {
+    @apply bg-app-hover;
+  }
+
+  .project-row small,
+  .meta,
+  .row-meta,
+  .due,
+  .helptext {
+    @apply text-sm text-fg-secondary;
+  }
+
+  .project-row span:first-child {
+    @apply grid gap-0.5;
+  }
+
+  .count,
+  .pill {
+    @apply rounded-md bg-app-elevated px-2 py-1 text-xs font-extrabold text-fg-secondary;
+  }
+
+  .board {
+    @apply grid auto-cols-[minmax(240px,1fr)] grid-flow-col gap-4 overflow-x-auto pb-2 lg:grid-flow-row lg:grid-cols-6;
+  }
+
+  .column {
+    @apply min-w-56 p-3;
+  }
+
+  .column h2 {
+    @apply rounded-md bg-app-elevated px-3 py-2 text-sm;
+  }
+
+  .task-card {
+    @apply mt-3 grid gap-3 rounded-smooth border border-line-subtle bg-tile p-3 shadow-sm transition duration-150;
+  }
+
+  .task-card:hover {
+    @apply border-line bg-app-hover shadow-panel;
+  }
+
+  .task-card.overdue,
+  .overdue-row {
+    @apply border-l-4 border-l-[var(--color-status-red-bar)] bg-[var(--color-status-red-background)];
+  }
+
+  .empty {
+    @apply mt-3 text-sm text-fg-tertiary;
+  }
+
+  .form-panel,
+  .auth-panel {
+    @apply w-full max-w-[680px];
+  }
+
+  .form {
+    @apply grid gap-4;
+  }
+
+  .form p,
+  .form label {
+    @apply m-0 grid gap-1.5 font-bold text-fg-primary;
+  }
+
+  .list {
+    @apply grid gap-3;
+  }
+
+  .list-row {
+    @apply flex items-start justify-between gap-4 border-b border-line-subtle pb-3 last:border-b-0 last:pb-0;
+  }
+
+  .messages {
+    @apply mb-4 grid gap-2;
+  }
+
+  .message {
+    @apply rounded-md border border-[var(--color-accent-info)] bg-brand-soft px-4 py-3 text-sm font-semibold text-fg-primary;
+  }
+
+  .stats-grid,
+  .review-grid,
+  .split {
+    @apply mb-5 grid gap-4;
+  }
+
+  .stats-grid {
+    @apply md:grid-cols-3;
+  }
+
+  .stat {
+    @apply grid gap-1 p-4 transition duration-150 hover:bg-app-hover hover:shadow-panel;
+  }
+
+  .stat strong {
+    @apply text-3xl font-extrabold;
+  }
+
+  .stat span {
+    @apply font-bold text-fg-secondary;
+  }
+
+  .split,
+  .review-grid {
+    @apply items-start lg:grid-cols-2;
+  }
+
+  .section-heading,
+  .spaced {
+    @apply mt-5;
+  }
+
+  .overdue-row {
+    @apply pl-3;
+  }
+
+  .tags {
+    @apply mt-2;
+  }
+
+  .errorlist {
+    @apply m-0 pl-5 text-sm font-semibold text-[var(--color-status-red-text)];
+  }
+
+  .inline-form {
+    @apply inline;
+  }
+
+  .auth-panel {
+    @apply mx-auto;
+  }
+}
+
+@layer utilities {
+  @media (max-width: 900px) {
+    .dashboard-head,
+    .detail-head,
+    .list-row {
+      @apply flex-col;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .topbar {
+      @apply flex-col items-start px-4 py-3;
+    }
+
+    .nav {
+      @apply w-full;
+    }
+  }
+}

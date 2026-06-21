@@ -13,3 +13,6 @@ staticfiles/
 .coverage
 # Local planning
 requirements.md
+# Node/Tailwind
+node_modules/
+npm-debug.log*
