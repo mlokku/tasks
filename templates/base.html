@@ -18,6 +18,15 @@
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
 </head>
 <body>
+  <header class="topbar">
+    <a class="brand" href="{% url 'dashboard' %}">{{ app_name|default:"TaskTracker" }}</a>
+    <button type="button" class="theme-switch" data-theme-toggle aria-label="Toggle color theme" aria-pressed="false">
+      <span class="switch-icon sun" aria-hidden="true">☀</span>
+      <span class="switch-knob"></span>
+      <span class="switch-icon moon" aria-hidden="true">☾</span>
+    </button>
+  </header>
+
   <div class="app-shell">
     <aside class="app-sidebar" aria-label="Areas and projects">
       <div class="sidebar-head">
@@ -60,7 +69,6 @@
                   <span class="count">{{ project.open_tasks }}</span>
                 </a>
               {% empty %}
-                <p class="sidebar-empty">No projects.</p>
               {% endfor %}
             </div>
           </details>
@@ -69,15 +77,6 @@
     </aside>
 
     <div class="app-main">
-      <header class="topbar">
-        <a class="brand" href="{% url 'dashboard' %}">{{ app_name|default:"TaskTracker" }}</a>
-        <button type="button" class="theme-switch" data-theme-toggle aria-label="Toggle color theme" aria-pressed="false">
-          <span class="switch-icon sun" aria-hidden="true">☀</span>
-          <span class="switch-knob"></span>
-          <span class="switch-icon moon" aria-hidden="true">☾</span>
-        </button>
-      </header>
-
       <main class="page">
         {% if messages %}
           <div class="messages">
