@@ -12,14 +12,14 @@ class AreaAdmin(admin.ModelAdmin):
 
 @admin.register(Project)
 class ProjectAdmin(admin.ModelAdmin):
-    list_display = ("name", "area", "owner", "status")
+    list_display = ("name", "area", "owner", "status", "color")
     list_filter = ("status", "area")
     search_fields = ("name", "description")
 
 
 @admin.register(Milestone)
 class MilestoneAdmin(admin.ModelAdmin):
-    list_display = ("title", "project", "order", "status", "target_date", "progress_percent")
+    list_display = ("title", "project", "order", "status", "color", "target_date", "progress_percent")
     list_filter = ("status", "project")
     search_fields = ("title", "notes")
 

@@ -1,33 +1,89 @@
 {% extends "base.html" %}
-{% block title %}{{ project.name }} - Tracker{% endblock %}
+{% block title %}{{ project.name }} - TaskTracker{% endblock %}
 {% block content %}
-  <section class="detail-head">
+  <section class="detail-head project-hero" style="--project-color: {{ project.color }}">
     <div>
-      <h1>{{ project.name }}</h1>
+      <div class="project-title-row"><span class="project-color large"></span><h1>{{ project.name }}</h1></div>
       <p>{{ project.description|default:"No description." }}</p>
       <div class="meta"><span class="pill">{{ project.get_status_display }}</span>{% if project.area %}<span>{{ project.area.name }}</span>{% endif %}</div>
     </div>
     <div class="actions">
-      <a class="button secondary" href="{% url 'project_update' project.pk %}">Edit</a>
-      <a class="button secondary" href="{% url 'milestone_create' project.pk %}">Add milestone</a>
-      <a class="button" href="{% url 'task_create' %}?project={{ project.pk }}">Add task</a>
+      <a class="button secondary" href="{% url 'project_update' project.pk %}" aria-label="Edit project">✎ Edit</a>
+      <button type="button" class="icon-button large-icon" data-dialog-open="milestone-create-dialog" aria-label="Add milestone">+</button>
     </div>
   </section>
-  <section class="split">
-    <div>
-      <h2>Milestones</h2>
-      <section class="list">
-        {% for milestone in milestones %}
-          <article class="list-row">
-            <div><strong>{{ milestone.order }}. {{ milestone.title }}</strong><div class="meta"><span>{{ milestone.get_status_display }}</span><span>{{ milestone.progress_percent }}%</span>{% if milestone.target_date %}<span>{{ milestone.target_date }}</span>{% endif %}</div></div>
-            <a class="button secondary small" href="{% url 'task_create' %}?project={{ project.pk }}&milestone={{ milestone.pk }}">Add task</a>
-          </article>
-        {% empty %}<p class="empty">No milestones yet.</p>{% endfor %}
-      </section>
-    </div>
-    <div>
-      <h2>Tasks</h2>
-      {% include "tasks/_task_list.html" with tasks=tasks %}
-    </div>
+
+  <section class="timeline" aria-label="Project milestones">
+    {% for milestone in milestones %}
+      <article class="milestone-column" {% if milestone.color %}style="--milestone-color: {{ milestone.color }}"{% endif %}>
+        <header class="milestone-head">
+          <div>
+            <h2>{{ milestone.title }}</h2>
+            <div class="meta"><span>{{ milestone.get_status_display }}</span><span>{{ milestone.progress_percent }}%</span>{% if milestone.target_date %}<span>{{ milestone.target_date }}</span>{% endif %}</div>
+          </div>
+          <button type="button" class="icon-button small-icon" data-dialog-open="task-create-milestone-{{ milestone.pk }}" aria-label="Add task to {{ milestone.title }}">+</button>
+        </header>
+
+        <div class="timeline-task-stack">
+          {% for task in milestone.task_items %}
+            {% include "tasks/task_modal_card.html" with task=task %}
+          {% empty %}
+            <p class="empty">No tasks in this milestone.</p>
+          {% endfor %}
+        </div>
+      </article>
+
+      <dialog class="modal" id="task-create-milestone-{{ milestone.pk }}">
+        <form method="post" action="{% url 'quick_task_create' %}" class="form modal-panel">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ request.get_full_path }}">
+          <input type="hidden" name="project" value="{{ project.pk }}">
+          <input type="hidden" name="milestone" value="{{ milestone.pk }}">
+          <header class="modal-head"><h2>New task</h2><button type="button" class="icon-button" data-dialog-close>×</button></header>
+          {{ milestone.quick_task_form.as_p }}
+          <button type="submit">Create task</button>
+        </form>
+      </dialog>
+    {% endfor %}
+
+    <article class="milestone-column backlog-column">
+      <header class="milestone-head">
+        <div><h2>Project tasks</h2><div class="meta"><span>No milestone</span></div></div>
+        <button type="button" class="icon-button small-icon" data-dialog-open="task-create-project" aria-label="Add project task">+</button>
+      </header>
+      <div class="timeline-task-stack">
+        {% for task in unmilestoned_tasks %}
+          {% include "tasks/task_modal_card.html" with task=task %}
+        {% empty %}
+          <p class="empty">No unassigned project tasks.</p>
+        {% endfor %}
+      </div>
+    </article>
   </section>
+
+  <dialog class="modal" id="task-create-project">
+    <form method="post" action="{% url 'quick_task_create' %}" class="form modal-panel">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <input type="hidden" name="project" value="{{ project.pk }}">
+      <header class="modal-head"><h2>New project task</h2><button type="button" class="icon-button" data-dialog-close>×</button></header>
+      {{ quick_task_form.as_p }}
+      <button type="submit">Create task</button>
+    </form>
+  </dialog>
+
+  <dialog class="modal" id="milestone-create-dialog">
+    <form method="post" action="{% url 'milestone_create' project.pk %}" class="form modal-panel">
+      {% csrf_token %}
+      <input type="hidden" name="project" value="{{ project.pk }}">
+      <header class="modal-head"><h2>New milestone</h2><button type="button" class="icon-button" data-dialog-close>×</button></header>
+      <label>Title {{ milestone_form.title }}</label>
+      <label>Notes {{ milestone_form.notes }}</label>
+      <label>Order {{ milestone_form.order }}</label>
+      <label>Status {{ milestone_form.status }}</label>
+      <label class="color-picker">Color {{ milestone_form.color }}<span class="color-swatches" data-color-swatches></span></label>
+      <label>Target date {{ milestone_form.target_date }}</label>
+      <button type="submit">Create milestone</button>
+    </form>
+  </dialog>
 {% endblock %}

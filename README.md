@@ -1,4 +1,4 @@
-# Personal Project Tracker
+# TaskTracker
 
 A small Django project/task tracker intended for self-hosting on a VPS. The app is server-rendered, uses Django auth, and uses a small browser script for light/dark theme selection.
 

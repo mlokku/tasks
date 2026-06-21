@@ -317,3 +317,257 @@
     }
   }
 }
+
+
+@layer components {
+  .app-shell {
+    @apply min-h-screen bg-app-bg text-fg-primary lg:grid lg:grid-cols-[300px_1fr];
+  }
+
+  .app-sidebar {
+    @apply border-b border-line-subtle bg-app-surface p-4 shadow-sm lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto lg:border-b-0 lg:border-r;
+  }
+
+  .app-main {
+    @apply min-w-0;
+  }
+
+  .sidebar-head,
+  .milestone-head,
+  .modal-head,
+  .project-title-row,
+  .modal-actions {
+    @apply flex items-center justify-between gap-3;
+  }
+
+  .sidebar-title {
+    @apply text-xs font-extrabold uppercase tracking-wide text-fg-tertiary;
+  }
+
+  .sidebar-dashboard,
+  .project-link {
+    @apply mt-2 flex items-center gap-2 rounded-smooth px-3 py-2 text-sm font-bold text-fg-secondary transition duration-150 hover:bg-app-hover hover:text-fg-primary;
+  }
+
+  .sidebar-dashboard.active,
+  .project-link.active {
+    @apply bg-brand-soft text-fg-primary;
+  }
+
+  .area-tree {
+    @apply mt-4 grid gap-2;
+  }
+
+  .sidebar-area {
+    @apply rounded-smooth border border-line-subtle bg-tile;
+  }
+
+  .sidebar-area summary {
+    @apply flex cursor-pointer list-none items-center justify-between gap-3 rounded-smooth px-3 py-2 font-extrabold text-fg-primary;
+  }
+
+  .sidebar-area summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .sidebar-area summary::before {
+    content: '+';
+    @apply mr-1 inline-flex h-5 w-5 items-center justify-center rounded-md bg-app-elevated text-xs text-fg-secondary;
+  }
+
+  .sidebar-area[open] summary::before {
+    content: '-';
+  }
+
+  .area-name {
+    @apply min-w-0 flex-1 truncate;
+  }
+
+  .project-stack {
+    @apply grid gap-1 border-t border-line-subtle px-2 py-2;
+  }
+
+  .project-color {
+    @apply h-3 w-3 shrink-0 rounded-sm;
+    background: var(--project-color, var(--color-accent-brand));
+  }
+
+  .project-color.large {
+    @apply h-5 w-5;
+  }
+
+  .sidebar-empty {
+    @apply m-0 px-2 py-1 text-sm text-fg-tertiary;
+  }
+
+  .icon-button {
+    @apply inline-flex h-9 min-h-0 w-9 items-center justify-center rounded-md border border-line bg-app-elevated p-0 text-lg font-extrabold text-fg-secondary shadow-none hover:bg-app-hover hover:text-fg-primary;
+  }
+
+  .small-icon {
+    @apply h-7 w-7 text-base;
+  }
+
+  .large-icon {
+    @apply h-11 w-11 text-2xl;
+  }
+
+  .topbar {
+    @apply sticky top-0 z-10 flex min-h-16 items-center justify-between gap-4 border-b border-line-subtle bg-app-surface px-5 shadow-sm backdrop-blur md:px-6;
+  }
+
+  .theme-switch {
+    @apply relative inline-grid h-9 min-h-0 w-20 grid-cols-2 items-center rounded-full border border-line bg-app-elevated p-1 shadow-none hover:bg-app-hover;
+  }
+
+  .switch-icon {
+    @apply z-10 text-center text-sm font-extrabold text-fg-tertiary;
+  }
+
+  .switch-knob {
+    @apply absolute left-1 h-7 w-9 rounded-full bg-brand transition-transform duration-200;
+  }
+
+  .dark .switch-knob {
+    @apply translate-x-9;
+  }
+
+  .dark .switch-icon.moon,
+  :root:not(.dark) .switch-icon.sun {
+    @apply text-fg-inverse;
+  }
+
+  .quick-actions {
+    @apply mb-5 flex flex-wrap gap-3;
+  }
+
+  .project-hero {
+    @apply rounded-smooth border border-line-subtle bg-app-surface p-4 shadow-sm;
+    border-top: 4px solid var(--project-color, var(--color-accent-brand));
+  }
+
+  .timeline {
+    @apply grid auto-cols-[minmax(320px,380px)] grid-flow-col gap-4 overflow-x-auto pb-4;
+  }
+
+  .milestone-column {
+    @apply rounded-smooth border border-line-subtle bg-app-surface p-3 shadow-sm;
+    border-top: 4px solid var(--milestone-color, var(--color-background-surface-elevated));
+  }
+
+  .backlog-column {
+    border-top-color: var(--color-border-default);
+  }
+
+  .timeline-task-stack {
+    @apply mt-3 grid gap-3;
+  }
+
+  .timeline-task {
+    @apply grid min-h-0 w-full cursor-pointer gap-2 rounded-smooth border border-line-subtle bg-tile p-3 text-left text-fg-primary shadow-sm transition duration-150 hover:border-line hover:bg-app-hover hover:shadow-panel;
+  }
+
+  .timeline-task.overdue {
+    @apply border-l-4 border-l-[var(--color-status-red-bar)] bg-[var(--color-status-red-background)];
+  }
+
+  .task-title {
+    @apply font-extrabold;
+  }
+
+  .modal {
+    @apply w-[min(720px,calc(100vw-2rem))] rounded-smooth border border-line-subtle bg-transparent p-0 text-fg-primary shadow-strong backdrop:bg-black/50;
+  }
+
+  .modal-panel {
+    @apply rounded-smooth bg-app-surface p-5 shadow-strong;
+  }
+
+  .modal-head {
+    @apply mb-3;
+  }
+
+  .modal-head h2 {
+    @apply m-0 text-xl;
+  }
+
+  .task-read-panel {
+    @apply grid gap-4;
+  }
+
+  .detail-grid {
+    @apply grid gap-3 rounded-smooth border border-line-subtle bg-app-elevated p-3 sm:grid-cols-2;
+  }
+
+  .detail-grid div {
+    @apply grid gap-1;
+  }
+
+  .detail-grid dt {
+    @apply text-xs font-extrabold uppercase tracking-wide text-fg-tertiary;
+  }
+
+  .detail-grid dd {
+    @apply m-0 text-sm font-bold text-fg-primary;
+  }
+
+  .dependency-list {
+    @apply flex flex-wrap gap-2;
+  }
+
+  .inline-empty {
+    @apply m-0;
+  }
+
+  .danger-button {
+    @apply bg-[var(--color-button-danger-background)] text-[var(--color-button-danger-text)] hover:bg-[var(--color-button-danger-background-hover)];
+  }
+
+  .task-edit-form {
+    @apply hidden;
+  }
+
+  .task-dialog.editing .task-readonly {
+    @apply hidden;
+  }
+
+  .task-dialog.editing .task-edit-form {
+    @apply grid;
+  }
+
+  .color-picker {
+    @apply gap-2;
+  }
+
+  .color-picker input[type='color'] {
+    @apply h-11 cursor-pointer p-1;
+  }
+
+  .color-swatches {
+    @apply flex flex-wrap gap-2;
+  }
+
+  .color-swatch {
+    @apply h-7 min-h-0 w-7 rounded-md border border-line p-0 shadow-sm;
+  }
+
+  .form [id$='dependencies'] {
+    @apply grid max-h-44 gap-2 overflow-y-auto rounded-smooth border border-line-subtle bg-app-elevated p-3;
+  }
+
+  .form [id$='dependencies'] label {
+    @apply flex grid-cols-none flex-row items-center gap-2 text-sm font-semibold;
+  }
+
+  .form input[type='checkbox'] {
+    @apply h-4 w-4;
+  }
+}
+
+@layer utilities {
+  @media (max-width: 1023px) {
+    .app-sidebar {
+      @apply max-h-[55vh] overflow-y-auto;
+    }
+  }
+}

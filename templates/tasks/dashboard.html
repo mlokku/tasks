@@ -1,19 +1,22 @@
 {% extends "base.html" %}
 {% load task_extras %}
 
-{% block title %}Dashboard - Tracker{% endblock %}
+{% block title %}Dashboard - TaskTracker{% endblock %}
 
 {% block content %}
   <section class="dashboard-head">
     <div>
-      <h1>Command center</h1>
+      <h1>Dashboard</h1>
       <p>Capture, plan, and work from the tasks that are actually available now.</p>
     </div>
-    <div class="actions">
-      <a class="button secondary" href="{% url 'area_create' %}">New area</a>
-      <a class="button secondary" href="{% url 'project_create' %}">New project</a>
-      <a class="button" href="{% url 'inbox' %}">Capture</a>
-    </div>
+  </section>
+
+  <section class="quick-actions" aria-label="Workflow shortcuts">
+    <a class="button" href="{% url 'inbox' %}">Capture</a>
+    <a class="button secondary" href="{% url 'inbox' %}">Inbox</a>
+    <a class="button secondary" href="{% url 'day' %}">Day</a>
+    <a class="button secondary" href="{% url 'up_next' %}">Up Next</a>
+    <a class="button secondary" href="{% url 'weekly_review' %}">Review</a>
   </section>
 
   <section class="stats-grid">
@@ -22,54 +25,28 @@
     <a class="stat" href="{% url 'up_next' %}"><strong>{{ up_next_count }}</strong><span>Up Next</span></a>
   </section>
 
-  <section class="layout">
-    <aside class="sidebar">
-      <div class="section-title">Areas</div>
-      {% for area in areas %}
-        <div class="project-row">
-          <span><strong>{{ area.name }}</strong><small>{{ area.project_count }} projects{% if area.is_default %} · default{% endif %}</small></span>
-        </div>
-      {% empty %}
-        <p class="empty">No areas yet.</p>
-      {% endfor %}
-
-      <div class="section-title spaced">Projects</div>
-      {% for project in projects %}
-        <a class="project-row" href="{{ project.get_absolute_url }}">
-          <span>
-            <strong>{{ project.name }}</strong>
-            <small>{% if project.area %}{{ project.area.name }} · {% endif %}{{ project.get_status_display }}</small>
-          </span>
-          <span class="count">{{ project.open_tasks }}</span>
-        </a>
-      {% empty %}
-        <p class="empty">No projects yet.</p>
-      {% endfor %}
-    </aside>
-
-    <section class="board">
-      {% for status, tasks in grouped_tasks.items %}
-        <div class="column">
-          <h2>{{ status_labels|get_item:status }}</h2>
-          {% for task in tasks %}
-            <article class="task-card {% if task.is_overdue %}overdue{% endif %}">
-              <a href="{{ task.get_absolute_url }}"><strong>{{ task.title }}</strong></a>
-              <div class="meta">
-                {% if task.project %}<span>{{ task.project.name }}</span>{% elif task.area %}<span>{{ task.area.name }}</span>{% endif %}
-                <span>{{ task.get_eisenhower_display }}</span>
-              </div>
-              {% if task.due_date %}<div class="due">Due {{ task.due_date }}</div>{% endif %}
-              <form method="post" action="{% url 'task_complete' task.pk %}">
-                {% csrf_token %}
-                <input type="hidden" name="next" value="{{ request.path }}">
-                <button type="submit" class="small">Done</button>
-              </form>
-            </article>
-          {% empty %}
-            <p class="empty">Nothing here.</p>
-          {% endfor %}
-        </div>
-      {% endfor %}
-    </section>
+  <section class="board">
+    {% for status, tasks in grouped_tasks.items %}
+      <div class="column">
+        <h2>{{ status_labels|get_item:status }}</h2>
+        {% for task in tasks %}
+          <article class="task-card {% if task.is_overdue %}overdue{% endif %}">
+            <a href="{{ task.get_absolute_url }}"><strong>{{ task.title }}</strong></a>
+            <div class="meta">
+              {% if task.project %}<span>{{ task.project.name }}</span>{% elif task.area %}<span>{{ task.area.name }}</span>{% endif %}
+              <span>{{ task.get_eisenhower_display }}</span>
+            </div>
+            {% if task.due_date %}<div class="due">Due {{ task.due_date }}</div>{% endif %}
+            <form method="post" action="{% url 'task_complete' task.pk %}">
+              {% csrf_token %}
+              <input type="hidden" name="next" value="{{ request.path }}">
+              <button type="submit" class="small">Done</button>
+            </form>
+          </article>
+        {% empty %}
+          <p class="empty">Nothing here.</p>
+        {% endfor %}
+      </div>
+    {% endfor %}
   </section>
 {% endblock %}

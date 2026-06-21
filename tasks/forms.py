@@ -15,9 +15,10 @@ class AreaForm(forms.ModelForm):
 class ProjectForm(forms.ModelForm):
     class Meta:
         model = Project
-        fields = ["area", "name", "description", "status"]
+        fields = ["area", "name", "description", "status", "color"]
         widgets = {
             "description": forms.Textarea(attrs={"rows": 4}),
+            "color": forms.TextInput(attrs={"type": "color", "data-color-input": ""}),
         }
 
     def __init__(self, *args, owner=None, **kwargs):
@@ -29,9 +30,10 @@ class ProjectForm(forms.ModelForm):
 class MilestoneForm(forms.ModelForm):
     class Meta:
         model = Milestone
-        fields = ["project", "title", "notes", "order", "status", "target_date"]
+        fields = ["project", "title", "notes", "order", "status", "color", "target_date"]
         widgets = {
             "target_date": forms.DateInput(attrs={"type": "date"}),
+            "color": forms.TextInput(attrs={"type": "color", "data-color-input": ""}),
             "notes": forms.Textarea(attrs={"rows": 3}),
         }
 
@@ -128,3 +130,28 @@ class InboxCaptureForm(forms.ModelForm):
             "reminder_date": forms.DateInput(attrs={"type": "date"}),
             "notes": forms.Textarea(attrs={"rows": 3}),
         }
+
+
+class QuickTaskForm(forms.ModelForm):
+    class Meta:
+        model = Task
+        fields = ["title", "notes", "priority", "due_date", "dependencies"]
+        labels = {
+            "priority": "Importance",
+            "dependencies": "Prerequisite tasks",
+        }
+        widgets = {
+            "due_date": forms.DateInput(attrs={"type": "date"}),
+            "notes": forms.Textarea(attrs={"rows": 4}),
+            "dependencies": forms.CheckboxSelectMultiple,
+        }
+
+    def __init__(self, *args, owner=None, project=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if owner is not None:
+            tasks = Task.objects.filter(owner=owner).exclude(status=Task.STATUS_DONE)
+            if self.instance.pk:
+                tasks = tasks.exclude(pk=self.instance.pk)
+            if project is not None:
+                tasks = tasks.filter(project=project)
+            self.fields["dependencies"].queryset = tasks

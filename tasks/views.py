@@ -12,7 +12,7 @@ from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.generic import CreateView, DetailView, UpdateView
 
-from .forms import AreaForm, InboxCaptureForm, MilestoneForm, ProjectForm, TaskForm
+from .forms import AreaForm, InboxCaptureForm, MilestoneForm, ProjectForm, QuickTaskForm, TaskForm
 from .models import Area, Milestone, Project, Task
 
 DEV_USERNAME = "local"
@@ -78,6 +78,15 @@ def save_default_area(form, owner):
         Area.objects.filter(owner=owner, is_default=True).exclude(pk=area.pk).update(is_default=False)
     area.save()
     return area
+
+
+def redirect_next(request, fallback="dashboard"):
+    return redirect(request.POST.get("next") or request.GET.get("next") or fallback)
+
+
+def next_milestone_order(project):
+    last = project.milestones.order_by("-order").first()
+    return 1 if last is None else last.order + 1
 
 
 @private_login_required
@@ -232,8 +241,30 @@ class ProjectDetailView(OwnedQuerysetMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         owner = get_owner(self.request)
+        milestones = list(self.object.milestones.filter(owner=owner).prefetch_related("tasks__dependencies"))
+        for milestone in milestones:
+            milestone.quick_task_form = QuickTaskForm(owner=owner, project=self.object)
+            milestone.task_items = list(
+                milestone.tasks.filter(owner=owner)
+                .select_related("area", "project", "milestone")
+                .prefetch_related("dependencies")
+            )
+            for task in milestone.task_items:
+                task.quick_edit_form = QuickTaskForm(instance=task, owner=owner, project=self.object)
+
+        unmilestoned_tasks = list(
+            self.object.tasks.filter(owner=owner, milestone__isnull=True)
+            .select_related("area", "project")
+            .prefetch_related("dependencies")
+        )
+        for task in unmilestoned_tasks:
+            task.quick_edit_form = QuickTaskForm(instance=task, owner=owner, project=self.object)
+
         context["tasks"] = self.object.tasks.filter(owner=owner).select_related("milestone", "area")
-        context["milestones"] = self.object.milestones.filter(owner=owner)
+        context["milestones"] = milestones
+        context["unmilestoned_tasks"] = unmilestoned_tasks
+        context["quick_task_form"] = QuickTaskForm(owner=owner, project=self.object)
+        context["milestone_form"] = MilestoneForm(owner=owner, project=self.object, initial={"order": next_milestone_order(self.object)})
         return context
 
 
@@ -330,6 +361,91 @@ class TaskUpdateView(OwnedQuerysetMixin, UpdateView):
         if form.instance.area_id is None:
             form.instance.area = form.instance.project.area if form.instance.project_id else get_default_area(get_owner(self.request))
         return super().form_valid(form)
+
+
+@private_login_required
+def sidebar_area_create(request):
+    owner = get_owner(request)
+    if request.method == "POST":
+        form = AreaForm(request.POST)
+        if form.is_valid():
+            area = form.save(commit=False)
+            area.owner = owner
+            area.is_default = False
+            area.save()
+            messages.success(request, "Area created.")
+    return redirect_next(request)
+
+
+@private_login_required
+def sidebar_project_create(request):
+    owner = get_owner(request)
+    if request.method == "POST":
+        form = ProjectForm(request.POST, owner=owner)
+        if form.is_valid():
+            project = form.save(commit=False)
+            project.owner = owner
+            if project.area_id is None:
+                project.area = get_default_area(owner)
+            project.save()
+            messages.success(request, "Project created.")
+            return redirect(project.get_absolute_url())
+    return redirect_next(request)
+
+
+@private_login_required
+def quick_task_create(request):
+    owner = get_owner(request)
+    project = None
+    milestone = None
+    area = None
+    if request.method == "POST":
+        project_id = request.POST.get("project")
+        milestone_id = request.POST.get("milestone")
+        area_id = request.POST.get("area")
+        if project_id:
+            project = get_object_or_404(Project, pk=project_id, owner=owner)
+            area = project.area or get_default_area(owner)
+        if milestone_id:
+            milestone = get_object_or_404(Milestone, pk=milestone_id, owner=owner, project=project)
+        if area_id and project is None:
+            area = get_object_or_404(Area, pk=area_id, owner=owner)
+
+        form = QuickTaskForm(request.POST, owner=owner, project=project)
+        if form.is_valid():
+            task = form.save(commit=False)
+            task.owner = owner
+            task.project = project
+            task.milestone = milestone
+            task.area = area or get_default_area(owner)
+            task.status = Task.STATUS_BACKLOG
+            task.save()
+            form.save_m2m()
+            messages.success(request, "Task created.")
+            return redirect_next(request, project.get_absolute_url() if project else "dashboard")
+    return redirect_next(request)
+
+
+@private_login_required
+def quick_task_update(request, pk):
+    owner = get_owner(request)
+    task = get_object_or_404(Task, pk=pk, owner=owner)
+    project = task.project
+    if request.method == "POST":
+        form = QuickTaskForm(request.POST, instance=task, owner=owner, project=project)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Task updated.")
+    return redirect_next(request, task.get_absolute_url())
+
+
+@private_login_required
+def task_delete(request, pk):
+    task = get_object_or_404(Task, pk=pk, owner=get_owner(request))
+    if request.method == "POST":
+        task.delete()
+        messages.success(request, "Task deleted.")
+    return redirect_next(request)
 
 
 @private_login_required
