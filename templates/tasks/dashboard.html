@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% load task_extras %}
+
+{% block title %}Dashboard - Tracker{% endblock %}
+
+{% block content %}
+  <section class="dashboard-head">
+    <div>
+      <h1>Project tracker</h1>
+      <p>Projects, next actions, blocked work, and due dates in one place.</p>
+    </div>
+    <div class="actions">
+      <a class="button secondary" href="{% url 'project_create' %}">New project</a>
+      <a class="button" href="{% url 'task_create' %}">New task</a>
+    </div>
+  </section>
+
+  <section class="layout">
+    <aside class="sidebar">
+      <div class="section-title">Projects</div>
+      {% for project in projects %}
+        <a class="project-row" href="{{ project.get_absolute_url }}">
+          <span>
+            <strong>{{ project.name }}</strong>
+            <small>{{ project.get_status_display }}</small>
+          </span>
+          <span class="count">{{ project.open_tasks }}</span>
+        </a>
+      {% empty %}
+        <p class="empty">No projects yet.</p>
+      {% endfor %}
+    </aside>
+
+    <section class="board">
+      {% for status, tasks in grouped_tasks.items %}
+        <div class="column">
+          <h2>{{ status_labels|get_item:status }}</h2>
+          {% for task in tasks %}
+            <article class="task-card {% if task.is_overdue %}overdue{% endif %}">
+              <a href="{{ task.get_absolute_url }}"><strong>{{ task.title }}</strong></a>
+              <div class="meta">
+                <span>{{ task.project.name }}</span>
+                <span>Priority {{ task.get_priority_display }}</span>
+              </div>
+              {% if task.due_date %}
+                <div class="due">Due {{ task.due_date }}</div>
+              {% endif %}
+              <form method="post" action="{% url 'task_complete' task.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="small">Done</button>
+              </form>
+            </article>
+          {% empty %}
+            <p class="empty">Nothing here.</p>
+          {% endfor %}
+        </div>
+      {% endfor %}
+    </section>
+  </section>
+{% endblock %}

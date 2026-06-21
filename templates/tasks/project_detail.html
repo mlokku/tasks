@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}{{ project.name }} - Tracker{% endblock %}
+
+{% block content %}
+  <section class="detail-head">
+    <div>
+      <h1>{{ project.name }}</h1>
+      <p>{{ project.description|default:"No description." }}</p>
+      <span class="pill">{{ project.get_status_display }}</span>
+    </div>
+    <div class="actions">
+      <a class="button secondary" href="{% url 'project_update' project.pk %}">Edit</a>
+      <a class="button" href="{% url 'task_create' %}?project={{ project.pk }}">Add task</a>
+    </div>
+  </section>
+
+  <section class="list">
+    {% for task in tasks %}
+      <article class="list-row">
+        <div>
+          <a href="{{ task.get_absolute_url }}"><strong>{{ task.title }}</strong></a>
+          <p>{{ task.notes|truncatewords:24 }}</p>
+        </div>
+        <div class="row-meta">
+          <span>{{ task.get_status_display }}</span>
+          <span>{{ task.get_priority_display }}</span>
+          {% if task.due_date %}<span>{{ task.due_date }}</span>{% endif %}
+        </div>
+      </article>
+    {% empty %}
+      <p class="empty">No tasks for this project yet.</p>
+    {% endfor %}
+  </section>
+{% endblock %}

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}{{ task.title }} - Tracker{% endblock %}
+
+{% block content %}
+  <section class="detail-head">
+    <div>
+      <h1>{{ task.title }}</h1>
+      <p>{{ task.notes|linebreaksbr|default:"No notes." }}</p>
+      <div class="meta">
+        <span>{{ task.project.name }}</span>
+        <span>{{ task.get_status_display }}</span>
+        <span>{{ task.get_priority_display }}</span>
+        {% if task.due_date %}<span>Due {{ task.due_date }}</span>{% endif %}
+      </div>
+    </div>
+    <div class="actions">
+      <a class="button secondary" href="{% url 'task_update' task.pk %}">Edit</a>
+      <form method="post" action="{% url 'task_complete' task.pk %}">
+        {% csrf_token %}
+        <button type="submit">Mark done</button>
+      </form>
+    </div>
+  </section>
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block title %}Task - Tracker{% endblock %}
+
+{% block content %}
+  <section class="form-panel">
+    <h1>{% if object %}Edit task{% else %}New task{% endif %}</h1>
+    <form method="post" class="form">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit">Save task</button>
+    </form>
+  </section>
+{% endblock %}
