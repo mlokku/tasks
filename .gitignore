@@ -11,3 +11,5 @@ staticfiles/
 # Tooling
 .pytest_cache/
 .coverage
+# Local planning
+requirements.md
