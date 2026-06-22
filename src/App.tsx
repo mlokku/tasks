@@ -660,7 +660,7 @@ function MiniCalendar({ state }: { state: AppState }) {
                   {dots > 0 && (
                     <div className="mt-0.5 flex gap-0.5">
                       {Array.from({ length: dots }).map((_, j) => (
-                        <span key={j} className="h-1 w-1 rounded-full" style={{ background: "var(--accent-brand)" }} />
+                        <span key={j} className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--foreground-secondary)" }} />
                       ))}
                     </div>
                   )}

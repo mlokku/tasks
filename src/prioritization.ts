@@ -51,7 +51,8 @@ export function buildWorkQueue(state: AppState, includeBlocked = false): WorkQue
   const queue: WorkQueueItem[] = [];
 
   for (const task of state.generalTasks) {
-    if (taskStage(task) === "complete") continue;
+    const stage = taskStage(task);
+    if (stage === "complete" || stage === "waitingReview") continue;
     queue.push({
       id: `general-${task.id}`,
       label: task.name,
@@ -69,7 +70,8 @@ export function buildWorkQueue(state: AppState, includeBlocked = false): WorkQue
   }
 
   for (const task of state.dailyTasks) {
-    if (taskStage(task) === "complete") continue;
+    const stage = taskStage(task);
+    if (stage === "complete" || stage === "waitingReview") continue;
     queue.push({
       id: `daily-${task.id}`,
       label: task.name,
@@ -89,7 +91,8 @@ export function buildWorkQueue(state: AppState, includeBlocked = false): WorkQue
   for (const project of state.projects) {
     for (const milestone of project.milestones) {
       for (const task of milestone.tasks) {
-        if (taskStage(task) === "complete") continue;
+        const stage = taskStage(task);
+        if (stage === "complete" || stage === "waitingReview") continue;
         const blockers = blockedByNames(task, project);
         if (blockers.length && !includeBlocked) continue;
         queue.push({
