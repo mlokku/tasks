@@ -22,6 +22,8 @@ Group related tokens by purpose: `background`, `foreground`, `border`, `status`,
 
 Use Noto Sans as the project font family in UI code and generated assets.
 
+Use Tailwind CSS for layout and styling when UI code is present. The visual language should favor rectangles with rounded corners, soft spacing, and a fluid, responsive feel over rigid or sharp-edged layouts.
+
 ## Testing Guidelines
 
 There is no automated test suite in the current repository. At minimum, validate JSON syntax after editing `palette.json`. When application code is added, include tests for token loading, theme selection, and any transformation logic that maps these tokens into CSS, Tailwind, or runtime theme objects.
