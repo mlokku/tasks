@@ -96,6 +96,9 @@ function createInitialState() {
       theme: "dark"
     },
     lastDailyResetDate: zonedToday(timezone),
+    inboxMessages: [],
+    inboxTasks: [],
+    apiKeys: [],
     generalTasks: [
       {
         id: "general-1",

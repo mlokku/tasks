@@ -8,9 +8,12 @@ import { dueSoon, isOverdue, minutesUntilMidnight, zonedToday } from "./time";
 import { timezoneGroups, timezoneLabel } from "./timezones";
 import { themeVars } from "./palette";
 import type {
+  ApiKey,
   AppState,
   DailyTask,
   GeneralTask,
+  InboxMessage,
+  InboxTask,
   Milestone,
   Project,
   ProjectTask,
@@ -95,6 +98,7 @@ export default function App() {
   const [loaded, setLoaded] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [selectedTask, setSelectedTask] = useState<TaskRef | null>(null);
+  const [selectedInboxTask, setSelectedInboxTask] = useState<InboxTask | null>(null);
   const [editing, setEditing] = useState(false);
   const [addTarget, setAddTarget] = useState<AddTaskTarget | null>(null);
   const [confirmRequest, setConfirmRequest] = useState<ConfirmRequest | null>(null);
@@ -374,6 +378,56 @@ export default function App() {
     });
   }
 
+  function markMessageRead(id: string) {
+    updateState((current) => ({
+      ...current,
+      inboxMessages: current.inboxMessages.map((msg) =>
+        msg.id === id ? { ...msg, read: true } : msg
+      )
+    }));
+  }
+
+  function markAllMessagesRead() {
+    updateState((current) => ({
+      ...current,
+      inboxMessages: current.inboxMessages.map((msg) => ({ ...msg, read: true }))
+    }));
+  }
+
+  function assignInboxTask(task: InboxTask, target: { kind: "general" } | { kind: "project"; projectId: string; milestoneId: string }) {
+    updateState((current) => {
+      const remaining = current.inboxTasks.filter((t) => t.id !== task.id);
+      const base = {
+        name: task.name,
+        completed: false,
+        stage: "notStarted" as TaskStage,
+        urgency: task.urgency,
+        ...(task.dueDate ? { dueDate: task.dueDate } : {}),
+        ...(task.notes ? { notes: task.notes } : {})
+      };
+      if (target.kind === "general") {
+        return { ...current, inboxTasks: remaining, generalTasks: [...current.generalTasks, { ...base, id: uid("general") }] };
+      }
+      return {
+        ...current,
+        inboxTasks: remaining,
+        projects: current.projects.map((project) =>
+          project.id !== target.projectId ? project : {
+            ...project,
+            milestones: project.milestones.map((milestone) =>
+              milestone.id !== target.milestoneId ? milestone : {
+                ...milestone,
+                tasks: [...milestone.tasks, { ...base, id: uid("project-task"), dependencyIds: [] }]
+              }
+            )
+          }
+        )
+      };
+    });
+    setSelectedInboxTask(null);
+    showToast("Task assigned", "success");
+  }
+
   return (
     <div className="app-shell" style={themeVars(state.settings.theme)}>
       <div className="flex min-h-screen">
@@ -390,7 +444,7 @@ export default function App() {
           {!loaded && <div className="mb-4 rounded-app border p-3 text-sm subtle" style={{ background: "var(--background-surface)", borderColor: "var(--border-subtle)" }}>Loading your workspace...</div>}
           {saveError && <div className="mb-4 rounded-app border p-3 text-sm" style={{ background: "var(--status-red-background)", borderColor: "var(--status-red-bar)", color: "var(--status-red-text)" }}>{saveError}</div>}
           {view.type === "dashboard" && (
-            <Dashboard state={state} queue={queue} openTask={openTask} setTaskStage={setTaskStage} />
+            <Dashboard state={state} queue={queue} openTask={openTask} setTaskStage={setTaskStage} markMessageRead={markMessageRead} markAllMessagesRead={markAllMessagesRead} onSelectInboxTask={setSelectedInboxTask} />
           )}
           {view.type === "general" && (
             <TaskListView
@@ -463,6 +517,15 @@ export default function App() {
           state={state}
           close={() => setAddTarget(null)}
           save={addTask}
+        />
+      )}
+
+      {selectedInboxTask && (
+        <AssignTaskPopover
+          task={selectedInboxTask}
+          state={state}
+          onAssign={assignInboxTask}
+          onClose={() => setSelectedInboxTask(null)}
         />
       )}
 
@@ -683,11 +746,96 @@ function MiniCalendar({ state }: { state: AppState }) {
   );
 }
 
-function InboxTile() {
+function InboxTile({ messages, tasks, onMarkRead, onMarkAllRead, onSelectTask }: {
+  messages: InboxMessage[];
+  tasks: InboxTask[];
+  onMarkRead: (id: string) => void;
+  onMarkAllRead: () => void;
+  onSelectTask: (task: InboxTask) => void;
+}) {
+  const unreadMessages = messages.filter((m) => !m.read).length;
+  const pendingCount = unreadMessages + tasks.length;
+
+  type InboxEntry =
+    | { kind: "message"; receivedAt: string; data: InboxMessage }
+    | { kind: "task"; receivedAt: string; data: InboxTask };
+
+  const entries: InboxEntry[] = [
+    ...messages.map((m): InboxEntry => ({ kind: "message", receivedAt: m.receivedAt, data: m })),
+    ...tasks.map((t): InboxEntry => ({ kind: "task", receivedAt: t.receivedAt, data: t }))
+  ].sort((a, b) => b.receivedAt.localeCompare(a.receivedAt));
+
   return (
     <div className="tile p-4">
-      <div className="label mb-3">Inbox</div>
-      <div className="muted text-center text-sm py-6">No messages yet.</div>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <span className="label">Inbox</span>
+          {pendingCount > 0 && (
+            <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full" style={{ background: "var(--accent-brand)", color: "var(--foreground-inverse)" }}>
+              {pendingCount}
+            </span>
+          )}
+        </div>
+        {unreadMessages > 0 && (
+          <button className="text-xs subtle hover:opacity-80" onClick={onMarkAllRead}>Mark all read</button>
+        )}
+      </div>
+      {entries.length === 0 ? (
+        <div className="muted text-center text-sm py-6">No messages yet.</div>
+      ) : (
+        <div className="grid gap-2">
+          {entries.slice(0, 5).map((entry) =>
+            entry.kind === "task" ? (
+              <button
+                key={entry.data.id}
+                className="rounded-app border px-3 py-2 text-left w-full"
+                style={{ borderColor: "var(--accent-brand)", background: "var(--accent-brand-soft)" }}
+                onClick={() => onSelectTask(entry.data)}
+              >
+                <div className="flex items-center justify-between gap-2 mb-0.5">
+                  <span className="text-xs font-semibold">{entry.data.name}</span>
+                  <span className="text-xs subtle">{formatInboxTime(entry.receivedAt)}</span>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs" style={{ color: `var(--status-${urgencyTone(entry.data.urgency)}-text)` }}>{capitalize(entry.data.urgency)}</span>
+                  {entry.data.dueDate && <span className="text-xs subtle">Due {entry.data.dueDate}</span>}
+                  <span className="text-xs subtle ml-auto">Click to assign →</span>
+                </div>
+              </button>
+            ) : (
+              <div
+                key={entry.data.id}
+                className="rounded-app border px-3 py-2"
+                style={{
+                  borderColor: entry.data.read ? "var(--border-subtle)" : "var(--accent-brand)",
+                  background: entry.data.read ? "transparent" : "var(--accent-brand-soft)"
+                }}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <span className="text-xs font-semibold">{entry.data.from}</span>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <span className="text-xs subtle">{formatInboxTime(entry.receivedAt)}</span>
+                    {!entry.data.read && (
+                      <button
+                        className="icon-btn btn-secondary"
+                        style={{ width: "1.25rem", height: "1.25rem" }}
+                        title="Mark as read"
+                        onClick={() => onMarkRead(entry.data.id)}
+                      >
+                        <MaterialIcon name="check" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <p className="subtle text-xs mt-0.5 leading-snug break-words">{entry.data.message}</p>
+              </div>
+            )
+          )}
+          {entries.length > 5 && (
+            <p className="text-xs subtle text-center">{entries.length - 5} older item{entries.length - 5 !== 1 ? "s" : ""}</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -697,8 +845,11 @@ function Dashboard(props: {
   queue: WorkQueueItem[];
   openTask: (ref: TaskRef) => void;
   setTaskStage: (ref: TaskRef, stage: TaskStage) => void;
+  markMessageRead: (id: string) => void;
+  markAllMessagesRead: () => void;
+  onSelectInboxTask: (task: InboxTask) => void;
 }) {
-  const { state, queue, openTask, setTaskStage } = props;
+  const { state, queue, openTask, setTaskStage, markMessageRead, markAllMessagesRead, onSelectInboxTask } = props;
   const completedToday = state.dailyTasks.filter((t) => t.completed).length;
   const generalRemaining = state.generalTasks.filter((t) => !t.completed).length;
 
@@ -721,7 +872,7 @@ function Dashboard(props: {
         </div>
         <div className="grid gap-4">
           <MiniCalendar state={state} />
-          <InboxTile />
+          <InboxTile messages={state.inboxMessages} tasks={state.inboxTasks} onMarkRead={markMessageRead} onMarkAllRead={markAllMessagesRead} onSelectTask={onSelectInboxTask} />
         </div>
         <div>
           <h2 className="text-base font-bold mb-3">Work queue</h2>
@@ -918,6 +1069,7 @@ function SettingsView({ state, setState, showToast }: {
         </div>
         <div className="subtle text-sm">Today in the selected timezone is {zonedToday(state.settings.timezone)}.</div>
       </div>
+      <ApiKeysSection state={state} setState={setState} />
       <ImportProjectSection state={state} setState={setState} showToast={showToast} />
     </section>
   );
@@ -1899,6 +2051,173 @@ function ImportProjectSection({ state, setState, showToast }: {
       </div>
     </div>
   );
+}
+
+function ApiKeysSection({ state, setState }: {
+  state: AppState;
+  setState: (state: AppState) => void;
+}) {
+  const [newKeyName, setNewKeyName] = useState("");
+  const [revealedKey, setRevealedKey] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  function handleGenerate() {
+    const name = newKeyName.trim();
+    if (!name) return;
+    const arr = new Uint8Array(18);
+    crypto.getRandomValues(arr);
+    const key = "tt_" + Array.from(arr, (b) => b.toString(16).padStart(2, "0")).join("");
+    const newApiKey: ApiKey = { id: uid("api-key"), name, key, createdAt: new Date().toISOString() };
+    setState({ ...state, apiKeys: [...state.apiKeys, newApiKey] });
+    setNewKeyName("");
+    setRevealedKey(key);
+    setCopied(false);
+  }
+
+  function handleCopy(key: string) {
+    navigator.clipboard.writeText(key);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1500);
+  }
+
+  function handleDelete(id: string) {
+    const dying = state.apiKeys.find((k) => k.id === id);
+    setState({ ...state, apiKeys: state.apiKeys.filter((k) => k.id !== id) });
+    if (dying?.key === revealedKey) setRevealedKey(null);
+  }
+
+  return (
+    <div className="mt-6 rounded-app border p-4" style={{ background: "var(--background-surface)", borderColor: "var(--border-subtle)" }}>
+      <div className="label mb-1">API Keys</div>
+      <p className="subtle text-sm mb-4">
+        Generate keys to authenticate requests to <code>/api/message</code> and <code>/api/task</code>.
+        Send as <code>Authorization: Bearer &lt;key&gt;</code> or <code>X-Api-Key: &lt;key&gt;</code>.
+      </p>
+      <div className="flex gap-2 mb-4">
+        <input
+          className="input flex-1"
+          placeholder='Key name (e.g. "Slack bot")'
+          value={newKeyName}
+          onChange={(e) => setNewKeyName(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") handleGenerate(); }}
+        />
+        <button className="btn btn-primary" disabled={!newKeyName.trim()} onClick={handleGenerate}>Generate</button>
+      </div>
+      {revealedKey && (
+        <div className="mb-4 rounded-app border px-3 py-2 text-sm" style={{ background: "var(--accent-brand-soft)", borderColor: "var(--accent-brand)" }}>
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <span className="font-medium text-xs">Key generated</span>
+            <button className="text-xs subtle hover:opacity-80" onClick={() => handleCopy(revealedKey)}>
+              {copied ? "Copied!" : "Copy"}
+            </button>
+          </div>
+          <code className="text-xs font-mono break-all">{revealedKey}</code>
+        </div>
+      )}
+      {state.apiKeys.length === 0 ? (
+        <div className="muted text-sm text-center py-4">No API keys yet.</div>
+      ) : (
+        <div className="grid gap-2">
+          {state.apiKeys.map((apiKey) => (
+            <div key={apiKey.id} className="flex items-center gap-3 rounded-app border px-3 py-2" style={{ borderColor: "var(--border-subtle)", background: "var(--background-surface-elevated)" }}>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium">{apiKey.name}</div>
+                <code className="text-xs subtle font-mono break-all">{apiKey.key}</code>
+              </div>
+              <div className="text-xs subtle shrink-0">{apiKey.createdAt.slice(0, 10)}</div>
+              <IconButton variant="danger" icon="delete" label="Revoke key" onClick={() => handleDelete(apiKey.id)} />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AssignTaskPopover({ task, state, onAssign, onClose }: {
+  task: InboxTask;
+  state: AppState;
+  onAssign: (task: InboxTask, target: { kind: "general" } | { kind: "project"; projectId: string; milestoneId: string }) => void;
+  onClose: () => void;
+}) {
+  const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [selectedMilestoneId, setSelectedMilestoneId] = useState("");
+  const selectedProject = state.projects.find((p) => p.id === selectedProjectId);
+
+  function handleProjectChange(projectId: string) {
+    setSelectedProjectId(projectId);
+    setSelectedMilestoneId("");
+  }
+
+  const canAssignToMilestone = selectedProjectId && selectedMilestoneId;
+  const tone = urgencyTone(task.urgency);
+
+  return (
+    <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/45 p-4" onMouseDown={onClose}>
+      <section
+        className="w-full max-w-md rounded-app border p-4 shadow-2xl"
+        style={{ background: "var(--background-surface-elevated)", borderColor: "var(--border-default)" }}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <div className="label">Assign task</div>
+            <h2 className="text-xl font-bold">{task.name}</h2>
+          </div>
+          <IconButton variant="secondary" icon="close" label="Close" onClick={onClose} />
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: `var(--status-${tone}-background)`, color: `var(--status-${tone}-text)` }}>
+            {capitalize(task.urgency)} urgency
+          </span>
+          {task.dueDate && <span className="text-xs subtle">Due {task.dueDate}</span>}
+        </div>
+
+        {task.notes && <p className="text-sm subtle mb-4 leading-snug">{task.notes}</p>}
+
+        <div className="grid gap-3">
+          <button className="btn btn-primary" onClick={() => onAssign(task, { kind: "general" })}>
+            Assign to General tasks
+          </button>
+
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px" style={{ background: "var(--border-subtle)" }} />
+            <span className="text-xs subtle shrink-0">or assign to a milestone</span>
+            <div className="flex-1 h-px" style={{ background: "var(--border-subtle)" }} />
+          </div>
+
+          <select className="input" value={selectedProjectId} onChange={(e) => handleProjectChange(e.target.value)}>
+            <option value="">Select project...</option>
+            {state.projects.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+          <select className="input" value={selectedMilestoneId} onChange={(e) => setSelectedMilestoneId(e.target.value)} disabled={!selectedProject}>
+            <option value="">Select milestone...</option>
+            {selectedProject?.milestones.map((m) => (
+              <option key={m.id} value={m.id}>{m.name}</option>
+            ))}
+          </select>
+          <button
+            className="btn btn-secondary"
+            disabled={!canAssignToMilestone}
+            onClick={() => { if (canAssignToMilestone) onAssign(task, { kind: "project", projectId: selectedProjectId, milestoneId: selectedMilestoneId }); }}
+          >
+            Assign to milestone
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function formatInboxTime(isoString: string): string {
+  const diffSecs = Math.floor((Date.now() - new Date(isoString).getTime()) / 1000);
+  if (diffSecs < 60) return "just now";
+  if (diffSecs < 3600) return `${Math.floor(diffSecs / 60)}m ago`;
+  if (diffSecs < 86400) return `${Math.floor(diffSecs / 3600)}h ago`;
+  return new Date(isoString).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 function capitalize(value: string): string {

@@ -50,6 +50,30 @@ export type AppSettings = {
   theme: ThemeMode;
 };
 
+export type InboxMessage = {
+  id: string;
+  from: string;
+  message: string;
+  receivedAt: string;
+  read: boolean;
+};
+
+export type InboxTask = {
+  id: string;
+  name: string;
+  urgency: Urgency;
+  dueDate?: string;
+  notes?: string;
+  receivedAt: string;
+};
+
+export type ApiKey = {
+  id: string;
+  name: string;
+  key: string;
+  createdAt: string;
+};
+
 export type AppState = {
   generalColor: string;
   dailyColor: string;
@@ -58,6 +82,9 @@ export type AppState = {
   projects: Project[];
   settings: AppSettings;
   lastDailyResetDate: string;
+  inboxMessages: InboxMessage[];
+  inboxTasks: InboxTask[];
+  apiKeys: ApiKey[];
 };
 
 export type TaskRef =

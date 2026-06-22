@@ -24,6 +24,9 @@ export function createInitialState(): AppState {
       theme: "dark"
     },
     lastDailyResetDate: zonedToday(timezone),
+    inboxMessages: [],
+    inboxTasks: [],
+    apiKeys: [],
     generalTasks: [
       {
         id: "general-1",

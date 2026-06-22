@@ -31,6 +31,9 @@ function normalizeTask<T extends TaskBase>(task: T): T {
 function normalizeState(state: AppState): AppState {
   return {
     ...state,
+    inboxMessages: state.inboxMessages ?? [],
+    inboxTasks: state.inboxTasks ?? [],
+    apiKeys: state.apiKeys ?? [],
     generalTasks: state.generalTasks.map(normalizeTask),
     dailyTasks: state.dailyTasks.map(normalizeTask),
     projects: state.projects.map((project) => ({
