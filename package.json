@@ -14,10 +14,14 @@
     "db:init": "node scripts/init-db.mjs"
   },
   "dependencies": {
+    "@simplewebauthn/browser": "^13.3.0",
+    "@simplewebauthn/server": "^13.3.1",
     "@vitejs/plugin-react": "^5.0.0",
     "autoprefixer": "^10.4.20",
     "better-sqlite3": "^12.11.1",
+    "cookie-parser": "^1.4.7",
     "express": "^5.2.1",
+    "jose": "^6.2.3",
     "postcss": "^8.5.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -27,6 +31,7 @@
     "vite": "^7.0.0"
   },
   "devDependencies": {
+    "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.6",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",

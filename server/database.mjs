@@ -42,6 +42,39 @@ function migrate(db) {
       updated_at TEXT NOT NULL
     );
   `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS passkeys (
+      id         TEXT PRIMARY KEY,
+      public_key TEXT NOT NULL,
+      counter    INTEGER NOT NULL DEFAULT 0,
+      transports TEXT,
+      name       TEXT NOT NULL DEFAULT 'Passkey',
+      created_at TEXT NOT NULL
+    );
+  `);
+}
+
+export function listPasskeys(db) {
+  return db.prepare("SELECT * FROM passkeys ORDER BY created_at").all();
+}
+
+export function savePasskey(db, passkey) {
+  db.prepare(`
+    INSERT INTO passkeys (id, public_key, counter, transports, name, created_at)
+    VALUES (@id, @public_key, @counter, @transports, @name, @created_at)
+  `).run(passkey);
+}
+
+export function updatePasskeyCounter(db, id, newCounter) {
+  db.prepare("UPDATE passkeys SET counter = ? WHERE id = ?").run(newCounter, id);
+}
+
+export function deletePasskey(db, id) {
+  db.prepare("DELETE FROM passkeys WHERE id = ?").run(id);
+}
+
+export function passkeyCount(db) {
+  return db.prepare("SELECT COUNT(*) as n FROM passkeys").get().n;
 }
 
 function seed(db) {

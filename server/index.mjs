@@ -1,7 +1,9 @@
 import express from "express";
+import cookieParser from "cookie-parser";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { getState, openDatabase, saveState } from "./database.mjs";
+import { createAuthRouter, requireAuth } from "./auth.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
@@ -13,6 +15,8 @@ const db = openDatabase();
 const app = express();
 
 app.use(express.json({ limit: "1mb" }));
+app.use(cookieParser());
+app.use(createAuthRouter(db));
 
 function uid(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -39,11 +43,11 @@ app.get("/api/health", (_request, response) => {
   response.json({ ok: true });
 });
 
-app.get("/api/state", (_request, response) => {
+app.get("/api/state", requireAuth, (_request, response) => {
   response.json(getState(db));
 });
 
-app.put("/api/state", (request, response) => {
+app.put("/api/state", requireAuth, (request, response) => {
   if (!request.body || typeof request.body !== "object") {
     response.status(400).json({ error: "State payload must be an object." });
     return;

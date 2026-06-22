@@ -3,7 +3,13 @@ import type { ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { buildWorkQueue, blockedByNames, blockingNames } from "./prioritization";
 import { createInitialState, identityColors } from "./sampleData";
-import { loadState, saveState, uid } from "./store";
+import { loadState, saveState, uid, UnauthorizedError } from "./store";
+import {
+  listPasskeys,
+  deletePasskey as deletePasskeyApi,
+  performRegistration,
+  type PasskeyInfo
+} from "./auth";
 import { dueSoon, isOverdue, minutesUntilMidnight, zonedToday } from "./time";
 import { timezoneGroups, timezoneLabel } from "./timezones";
 import { themeVars } from "./palette";
@@ -93,7 +99,7 @@ function viewFromPath(pathname: string): View {
   return { type: "dashboard" };
 }
 
-export default function App() {
+export default function App({ onUnauthorized }: { onUnauthorized: () => void }) {
   const [state, setState] = useState<AppState>(() => createInitialState());
   const [loaded, setLoaded] = useState(false);
   const [saveError, setSaveError] = useState("");
@@ -124,11 +130,18 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false;
-    loadState().then((loadedState) => {
-      if (cancelled) return;
-      setState(loadedState);
-      setLoaded(true);
-    });
+    loadState()
+      .then((loadedState) => {
+        if (cancelled) return;
+        setState(loadedState);
+        setLoaded(true);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        if (err instanceof UnauthorizedError) { onUnauthorized(); return; }
+        setState(createInitialState());
+        setLoaded(true);
+      });
     return () => {
       cancelled = true;
     };
@@ -140,6 +153,7 @@ export default function App() {
       saveState(state)
         .then(() => setSaveError(""))
         .catch((error) => {
+          if (error instanceof UnauthorizedError) { onUnauthorized(); return; }
           console.error(error);
           setSaveError("Your changes could not be saved. Please try again.");
         });
@@ -493,7 +507,7 @@ export default function App() {
             />
           )}
           {view.type === "settings" && (
-            <SettingsView state={state} setState={setState} showToast={showToast} />
+            <SettingsView state={state} setState={setState} showToast={showToast} onUnauthorized={onUnauthorized} />
           )}
         </main>
       </div>
@@ -1054,10 +1068,11 @@ function ProjectView(props: {
   );
 }
 
-function SettingsView({ state, setState, showToast }: {
+function SettingsView({ state, setState, showToast, onUnauthorized }: {
   state: AppState;
   setState: (state: AppState) => void;
   showToast: (message: string, tone?: Toast["tone"]) => void;
+  onUnauthorized: () => void;
 }) {
   return (
     <section className="mx-auto max-w-3xl">
@@ -1070,6 +1085,7 @@ function SettingsView({ state, setState, showToast }: {
         <div className="subtle text-sm">Today in the selected timezone is {zonedToday(state.settings.timezone)}.</div>
       </div>
       <ApiKeysSection state={state} setState={setState} />
+      <PasskeysSection showToast={showToast} onUnauthorized={onUnauthorized} />
       <ImportProjectSection state={state} setState={setState} showToast={showToast} />
     </section>
   );
@@ -2129,6 +2145,113 @@ function ApiKeysSection({ state, setState }: {
             </div>
           ))}
         </div>
+      )}
+    </div>
+  );
+}
+
+function PasskeysSection({ showToast, onUnauthorized }: {
+  showToast: (message: string, tone?: Toast["tone"]) => void;
+  onUnauthorized: () => void;
+}) {
+  const [passkeys, setPasskeys] = useState<PasskeyInfo[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [newKeyName, setNewKeyName] = useState("My Passkey");
+  const [adding, setAdding] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  function refresh() {
+    listPasskeys()
+      .then(setPasskeys)
+      .catch((e) => {
+        if (e instanceof UnauthorizedError) onUnauthorized();
+      })
+      .finally(() => setLoading(false));
+  }
+
+  useEffect(() => { refresh(); }, []);
+
+  async function handleAdd() {
+    setError("");
+    setBusy(true);
+    try {
+      await performRegistration(newKeyName.trim() || "Passkey");
+      showToast("Passkey registered", "success");
+      setAdding(false);
+      setNewKeyName("My Passkey");
+      refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Registration failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    try {
+      await deletePasskeyApi(id);
+      setPasskeys((prev) => prev.filter((p) => p.id !== id));
+      showToast("Passkey removed", "danger");
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : "Could not remove passkey.", "danger");
+    }
+  }
+
+  return (
+    <div className="mt-6 rounded-app border p-4" style={{ background: "var(--background-surface)", borderColor: "var(--border-subtle)" }}>
+      <div className="label mb-1">Passkeys</div>
+      <p className="subtle text-sm mb-4">
+        Passkeys are used to sign in. You need at least one. Add more from other devices while logged in.
+      </p>
+      {loading ? (
+        <div className="muted text-sm text-center py-4">Loading…</div>
+      ) : passkeys.length === 0 ? (
+        <div className="muted text-sm text-center py-4">No passkeys found.</div>
+      ) : (
+        <div className="grid gap-2 mb-4">
+          {passkeys.map((passkey) => (
+            <div key={passkey.id} className="flex items-center gap-3 rounded-app border px-3 py-2" style={{ borderColor: "var(--border-subtle)", background: "var(--background-surface-elevated)" }}>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium">{passkey.name}</div>
+                <div className="text-xs subtle">{passkey.createdAt.slice(0, 10)}</div>
+              </div>
+              <IconButton
+                variant="danger"
+                icon="delete"
+                label="Remove passkey"
+                onClick={() => handleDelete(passkey.id)}
+                disabled={passkeys.length <= 1}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+      {adding ? (
+        <div className="flex flex-col gap-3">
+          <div className="flex gap-2">
+            <input
+              className="input flex-1"
+              placeholder="Passkey name"
+              value={newKeyName}
+              onChange={(e) => setNewKeyName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); if (e.key === "Escape") setAdding(false); }}
+              disabled={busy}
+              autoFocus
+            />
+            <button className="btn btn-primary" onClick={handleAdd} disabled={busy}>
+              {busy ? "Waiting…" : "Register"}
+            </button>
+            <button className="btn btn-secondary" onClick={() => { setAdding(false); setError(""); }} disabled={busy}>
+              Cancel
+            </button>
+          </div>
+          {error && <p className="text-sm" style={{ color: "var(--status-red-text)" }}>{error}</p>}
+        </div>
+      ) : (
+        <button className="btn btn-secondary" onClick={() => { setAdding(true); setError(""); }}>
+          Add passkey
+        </button>
       )}
     </div>
   );

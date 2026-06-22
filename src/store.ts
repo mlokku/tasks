@@ -2,15 +2,24 @@ import { createInitialState } from "./sampleData";
 import { zonedToday } from "./time";
 import type { AppState, TaskBase, TaskStage } from "./types";
 
+export class UnauthorizedError extends Error {
+  constructor() { super("Unauthorized"); }
+}
+
 export async function loadState(): Promise<AppState> {
+  let response: Response;
   try {
-    const response = await fetch("/api/state");
-    if (!response.ok) throw new Error(`Unable to load state: ${response.status}`);
-    return applyDailyReset(normalizeState(await response.json() as AppState));
+    response = await fetch("/api/state");
   } catch (error) {
     console.error(error);
     return createInitialState();
   }
+  if (response.status === 401) throw new UnauthorizedError();
+  if (!response.ok) {
+    console.error(`Unable to load state: ${response.status}`);
+    return createInitialState();
+  }
+  return applyDailyReset(normalizeState(await response.json() as AppState));
 }
 
 export async function saveState(state: AppState): Promise<AppState> {
@@ -19,6 +28,7 @@ export async function saveState(state: AppState): Promise<AppState> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(state)
   });
+  if (response.status === 401) throw new UnauthorizedError();
   if (!response.ok) throw new Error(`Unable to save state: ${response.status}`);
   return await response.json() as AppState;
 }
