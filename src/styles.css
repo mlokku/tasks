@@ -191,7 +191,11 @@ button:disabled {
 }
 
 .stage-controls-compact {
-  @apply min-w-[260px] flex-nowrap justify-end;
+  @apply min-w-[150px] flex-col items-stretch justify-center;
+}
+
+.stage-controls-compact .stage-button {
+  @apply justify-start;
 }
 
 .stage-button {
