@@ -1550,6 +1550,17 @@ function ImportProjectSection({ state, setState, showToast }: {
 }) {
   const [json, setJson] = useState("");
   const [error, setError] = useState("");
+  const [helpOpen, setHelpOpen] = useState(false);
+  const helpRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!helpOpen) return;
+    function onMouseDown(e: MouseEvent) {
+      if (helpRef.current && !helpRef.current.contains(e.target as Node)) setHelpOpen(false);
+    }
+    document.addEventListener("mousedown", onMouseDown);
+    return () => document.removeEventListener("mousedown", onMouseDown);
+  }, [helpOpen]);
 
   function handleImport() {
     setError("");
@@ -1645,15 +1656,55 @@ function ImportProjectSection({ state, setState, showToast }: {
 
   return (
     <div className="mt-6 rounded-app border p-4" style={{ background: "var(--background-surface)", borderColor: "var(--border-subtle)" }}>
-      <div className="mb-3">
-        <div className="label mb-1">Import project</div>
-        <p className="subtle text-sm">
-          Paste a JSON project definition. The placeholder shows every supported field.
-          Required: <code>project name</code>, <code>milestones</code> array; each milestone needs <code>milestone name</code> and <code>tasks</code> array; each task needs <code>task name</code>.
-          Alternate key names are accepted — <code>name</code> works in place of <code>project/milestone/task name</code>; <code>uuid</code> or <code>id</code> for <code>task uuid</code>; bare <code>urgency</code>, <code>stage</code>, <code>notes</code>, <code>dueDate</code> for the <code>task&nbsp;*</code> prefixed variants; <code>dependencyIds</code> for <code>dependencies</code>.
-          Valid urgency values: <code>low</code>, <code>medium</code>, <code>high</code>. Valid stage values: <code>notStarted</code>, <code>inProgress</code>, <code>waitingReview</code>, <code>complete</code>.
-          Task UUIDs resolve dependencies and are then discarded.
-        </p>
+      <div className="mb-3 flex items-start justify-between gap-2">
+        <div>
+          <div className="label mb-1">Import project</div>
+          <p className="subtle text-sm">Paste a JSON project definition. The placeholder shows every supported field.</p>
+        </div>
+        <div className="relative shrink-0" ref={helpRef}>
+          <button
+            type="button"
+            className="icon-btn btn-secondary"
+            aria-label="Schema reference"
+            aria-expanded={helpOpen}
+            onClick={() => setHelpOpen((o) => !o)}
+          >
+            <MaterialIcon name="help_outline" />
+          </button>
+          {helpOpen && (
+            <div
+              className="absolute right-0 top-9 z-10 w-72 max-h-80 overflow-y-auto rounded-app border p-4 shadow-xl text-sm"
+              style={{ background: "var(--background-surface-elevated)", borderColor: "var(--border-default)" }}
+            >
+              <p className="font-semibold mb-3">Schema reference</p>
+              <p className="font-medium mb-1">Project</p>
+              <ul className="list-disc pl-4 space-y-1 subtle">
+                <li><code>project name</code> <span className="opacity-60">(required)</span> — alt: <code>name</code></li>
+                <li><code>milestones</code> <span className="opacity-60">(required)</span> — array of milestone objects</li>
+                <li><code>priority</code> — integer 1–10, defaults to 5</li>
+                <li><code>color</code> — CSS color string, auto-assigned if omitted</li>
+                <li><code>notes</code> — string</li>
+              </ul>
+              <p className="font-medium mt-3 mb-1">Milestone</p>
+              <ul className="list-disc pl-4 space-y-1 subtle">
+                <li><code>milestone name</code> <span className="opacity-60">(required)</span> — alt: <code>name</code></li>
+                <li><code>tasks</code> <span className="opacity-60">(required)</span> — array of task objects</li>
+                <li><code>urgency</code> — <code>low</code> | <code>medium</code> | <code>high</code></li>
+                <li><code>notes</code> — string</li>
+              </ul>
+              <p className="font-medium mt-3 mb-1">Task</p>
+              <ul className="list-disc pl-4 space-y-1 subtle">
+                <li><code>task name</code> <span className="opacity-60">(required)</span> — alt: <code>name</code></li>
+                <li><code>task uuid</code> — alt: <code>uuid</code> | <code>id</code> — used to wire dependencies, then discarded</li>
+                <li><code>task urgency</code> — alt: <code>urgency</code>: <code>low</code> | <code>medium</code> | <code>high</code></li>
+                <li><code>task stage</code> — alt: <code>stage</code>: <code>notStarted</code> | <code>inProgress</code> | <code>waitingReview</code> | <code>complete</code></li>
+                <li><code>task due date</code> — alt: <code>dueDate</code> | <code>due date</code> | <code>due_date</code>: YYYY-MM-DD</li>
+                <li><code>task notes</code> — alt: <code>notes</code>: string</li>
+                <li><code>dependencies</code> — alt: <code>task dependencies</code> | <code>dependencyIds</code>: array of task uuid strings</li>
+              </ul>
+            </div>
+          )}
+        </div>
       </div>
       <textarea
         className="input min-h-40 font-mono text-xs"
