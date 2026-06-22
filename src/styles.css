@@ -76,6 +76,54 @@ button:disabled {
   box-shadow: 0 0 0 3px var(--accent-brand-soft);
 }
 
+.priority-slider {
+  @apply h-2 w-full cursor-pointer appearance-none rounded-full outline-none;
+  background: linear-gradient(90deg, var(--border-default), var(--accent-brand));
+}
+
+.priority-slider::-webkit-slider-thumb {
+  @apply h-5 w-5 appearance-none rounded-full border-2;
+  background: var(--background-surface-elevated);
+  border-color: var(--accent-brand);
+  box-shadow: 0 1px 4px var(--shadow-default);
+}
+
+.priority-slider::-moz-range-thumb {
+  @apply h-5 w-5 rounded-full border-2;
+  background: var(--background-surface-elevated);
+  border-color: var(--accent-brand);
+  box-shadow: 0 1px 4px var(--shadow-default);
+}
+
+.priority-slider:focus-visible {
+  box-shadow: 0 0 0 3px var(--accent-brand-soft);
+}
+
+.material-symbols-rounded {
+  font-family: "Material Symbols Rounded";
+  font-weight: normal;
+  font-style: normal;
+  font-size: 20px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: "liga";
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "liga";
+}
+
+.icon-btn {
+  @apply inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-app transition;
+}
+
+.icon-btn .material-symbols-rounded {
+  font-size: 21px;
+}
+
 .btn {
   @apply inline-flex items-center justify-center rounded-app px-3 py-2 text-sm font-semibold transition;
 }

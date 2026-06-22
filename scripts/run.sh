@@ -31,19 +31,6 @@ Shutting down web server...
   exit "${exit_code}"
 }
 
-open_url() {
-  if command -v xdg-open >/dev/null 2>&1; then
-    xdg-open "${URL}" >/dev/null 2>&1 &
-  elif command -v open >/dev/null 2>&1; then
-    open "${URL}" >/dev/null 2>&1 &
-  elif command -v python3 >/dev/null 2>&1; then
-    python3 -m webbrowser "${URL}" >/dev/null 2>&1 &
-  else
-    printf 'Open %s in your browser.
-' "${URL}"
-  fi
-}
-
 trap cleanup INT TERM EXIT
 
 cd "${ROOT_DIR}"
@@ -69,7 +56,8 @@ HOST="${HOST}" PORT="${PORT}" npm run server &
 SERVER_PID=$!
 
 sleep 1
-open_url
+printf 'Open %s in your browser when ready.
+' "${URL}"
 
 if [[ -n "${BUILD_PID}" ]]; then
   wait "${BUILD_PID}"

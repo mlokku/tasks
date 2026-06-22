@@ -257,6 +257,7 @@ export default function App() {
               title="General"
               subtitle="Standalone work that does not belong to a project."
               color={state.generalColor}
+              onColorChange={(color) => updateState((current) => ({ ...current, generalColor: color }))}
               tasks={state.generalTasks}
               makeRef={(task) => ({ kind: "general", taskId: task.id })}
               onAdd={() => setAddTarget({ kind: "general" })}
@@ -270,6 +271,7 @@ export default function App() {
               title="Daily"
               subtitle={`Recurring tasks reset on ${zonedToday(state.settings.timezone)} in ${state.settings.timezone}.`}
               color={state.dailyColor}
+              onColorChange={(color) => updateState((current) => ({ ...current, dailyColor: color }))}
               tasks={state.dailyTasks}
               makeRef={(task) => ({ kind: "daily", taskId: task.id })}
               onAdd={() => setAddTarget({ kind: "daily" })}
@@ -371,7 +373,7 @@ function Sidebar(props: {
         </nav>
         <div className="mt-3 flex gap-2">
           <input className="input min-w-0" placeholder="New project" value={props.newProjectName} onChange={(event) => props.setNewProjectName(event.target.value)} />
-          <button className="btn btn-secondary shrink-0" onClick={props.addProject}>Add</button>
+          <IconButton variant="secondary" icon="add" label="Add project" onClick={props.addProject} />
         </div>
       </div>
       <button className={`${navClass(view.type === "settings")} mt-6`} onClick={() => navigate({ type: "settings" })}>Settings</button>
@@ -416,6 +418,7 @@ function TaskListView<T extends TaskBase>(props: {
   title: string;
   subtitle: string;
   color: string;
+  onColorChange: (color: string) => void;
   tasks: T[];
   makeRef: (task: T) => TaskRef;
   onAdd: () => void;
@@ -425,7 +428,16 @@ function TaskListView<T extends TaskBase>(props: {
 }) {
   return (
     <section className="mx-auto max-w-5xl">
-      <Header title={props.title} subtitle={props.subtitle} action={<button className="btn btn-primary" onClick={props.onAdd}>Add task</button>} />
+      <Header
+        title={props.title}
+        subtitle={props.subtitle}
+        action={
+          <div className="flex flex-wrap items-center gap-2">
+            <ColorPicker value={props.color} colors={identityColors} onChange={props.onColorChange} />
+            <IconButton variant="primary" icon="add" label="Add task" onClick={props.onAdd} />
+          </div>
+        }
+      />
       <div className="grid gap-2">
         {props.tasks.length === 0 && <EmptyState text="No tasks yet." />}
         {props.tasks.map((task) => {
@@ -481,12 +493,9 @@ function ProjectView(props: {
     <section>
       <Header
         title={project.name}
-        subtitle={`Project priority ${project.priority}. Milestone urgency and task urgency sort inside this project.`}
         action={
-          <div className="flex flex-wrap gap-2">
-            <select className="input w-28" value={project.priority} onChange={(event) => updateField("priority", Number(event.target.value))}>
-              {Array.from({ length: 10 }, (_, index) => index + 1).map((priority) => <option key={priority} value={priority}>P{priority}</option>)}
-            </select>
+          <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
+            <ProjectPrioritySlider value={project.priority} onChange={(priority) => updateField("priority", priority)} />
             <ColorPicker value={project.color} colors={identityColors} onChange={(color) => updateField("color", color)} />
           </div>
         }
@@ -497,10 +506,7 @@ function ProjectView(props: {
           {notesEditing ? (
             <button className="btn btn-secondary" onClick={() => setNotesEditing(false)}>Done</button>
           ) : (
-            <button className="btn btn-secondary gap-2" aria-label="Edit project notes" title="Edit project notes" onClick={() => setNotesEditing(true)}>
-              <PencilIcon />
-              <span>Edit</span>
-            </button>
+            <IconButton variant="secondary" icon="edit" label="Edit project notes" onClick={() => setNotesEditing(true)} />
           )}
         </div>
         {notesEditing ? (
@@ -511,7 +517,7 @@ function ProjectView(props: {
       </div>
       <div className="mb-4 flex max-w-xl gap-2">
         <input className="input" placeholder="New milestone" value={props.newMilestoneName} onChange={(event) => props.setNewMilestoneName(event.target.value)} />
-        <button className="btn btn-secondary shrink-0" onClick={props.addMilestone}>Add milestone</button>
+        <IconButton variant="secondary" icon="add" label="Add milestone" onClick={props.addMilestone} />
       </div>
       <div className="flex gap-4 overflow-x-auto pb-3">
         {project.milestones.map((milestone) => (
@@ -523,7 +529,7 @@ function ProjectView(props: {
                   {urgencyOptions.map((urgency) => <option key={urgency} value={urgency}>{capitalize(urgency)} urgency</option>)}
                 </select>
               </div>
-              <button className="btn btn-secondary shrink-0" onClick={() => props.setAddTarget({ kind: "project", projectId: project.id, milestoneId: milestone.id })}>Add</button>
+              <IconButton variant="secondary" icon="add" label="Add task" onClick={() => props.setAddTarget({ kind: "project", projectId: project.id, milestoneId: milestone.id })} />
             </div>
             <div className="grid gap-2">
               {milestone.tasks.length === 0 && <EmptyState text="No tasks in this milestone." compact />}
@@ -614,7 +620,7 @@ function TaskPopover(props: {
             <div className="label">{details.context}</div>
             <h2 className="text-xl font-bold">{details.task.name}</h2>
           </div>
-          <button className="btn btn-secondary" onClick={props.close}>Close</button>
+          <IconButton variant="secondary" icon="close" label="Close" onClick={props.close} />
         </div>
 
         {props.editing ? (
@@ -634,7 +640,7 @@ function TaskPopover(props: {
                 <button className="btn btn-primary" onClick={() => props.save(details.ref, draft)}>Save</button>
               </>
             ) : (
-              <button className="btn btn-primary" onClick={() => props.setEditing(true)}>Edit</button>
+              <IconButton variant="primary" icon="edit" label="Edit task" onClick={() => props.setEditing(true)} />
             )}
           </div>
         </div>
@@ -663,12 +669,12 @@ function AddTaskPopover(props: {
       <section className="w-full max-w-2xl rounded-app border p-4 shadow-2xl" style={{ background: "var(--background-surface-elevated)", borderColor: "var(--border-default)" }} onMouseDown={(event) => event.stopPropagation()}>
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="text-xl font-bold">Add task</h2>
-          <button className="btn btn-secondary" onClick={props.close}>Close</button>
+          <IconButton variant="secondary" icon="close" label="Close" onClick={props.close} />
         </div>
         <TaskEditor draft={draft} setDraft={setDraft} projectTasks={projectTasks} />
         <div className="mt-5 flex justify-end gap-2">
           <button className="btn btn-secondary" onClick={props.close}>Cancel</button>
-          <button className="btn btn-primary" onClick={() => props.save(props.target, draft)}>Add task</button>
+          <IconButton variant="primary" icon="add" label="Add task" onClick={() => props.save(props.target, draft)} />
         </div>
       </section>
     </div>
@@ -828,24 +834,59 @@ function ColorPicker({ value, colors, onChange }: { value: string; colors: strin
   );
 }
 
-function PencilIcon() {
+function MaterialIcon({ name }: { name: string }) {
+  return <span className="material-symbols-rounded" aria-hidden="true">{name}</span>;
+}
+
+function IconButton({ variant, icon, label, onClick, disabled = false }: { variant: "primary" | "secondary"; icon: string; label: string; onClick: () => void; disabled?: boolean }) {
   return (
-    <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 20h9" />
-      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
-    </svg>
+    <button
+      className={`icon-btn btn-${variant}`}
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      disabled={disabled}
+      type="button"
+    >
+      <MaterialIcon name={icon} />
+    </button>
   );
 }
 
-function Header({ title, subtitle, action }: { title: string; subtitle: string; action?: ReactNode }) {
+function Header({ title, subtitle, action }: { title: string; subtitle?: string; action?: ReactNode }) {
   return (
-    <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <h1 className="text-2xl font-bold">{title}</h1>
-        <p className="subtle mt-1 max-w-2xl text-sm">{subtitle}</p>
+        {subtitle && <p className="subtle mt-1 max-w-2xl text-sm">{subtitle}</p>}
       </div>
       {action}
     </div>
+  );
+}
+
+function ProjectPrioritySlider({ value, onChange }: { value: number; onChange: (value: number) => void }) {
+  return (
+    <label className="flex min-w-[260px] flex-1 items-center gap-3 sm:flex-initial">
+      <span className="label shrink-0">Priority</span>
+      <div className="grid min-w-[180px] flex-1 gap-1">
+        <div className="flex items-center gap-2">
+          <span className="muted text-xs">Low</span>
+          <input
+            className="priority-slider"
+            type="range"
+            min="1"
+            max="10"
+            step="1"
+            value={value}
+            aria-label="Project priority from low to high"
+            onChange={(event) => onChange(Number(event.target.value))}
+          />
+          <span className="muted text-xs">High</span>
+        </div>
+        <div className="text-center text-xs font-semibold">P{value}</div>
+      </div>
+    </label>
   );
 }
 
