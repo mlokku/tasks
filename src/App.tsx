@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { buildWorkQueue, blockedByNames, blockingNames } from "./prioritization";
 import { createInitialState, identityColors } from "./sampleData";
 import { loadState, saveState, uid } from "./store";
-import { dueSoon, isOverdue, zonedToday } from "./time";
+import { dueSoon, isOverdue, minutesUntilMidnight, zonedToday } from "./time";
+import { timezoneGroups, timezoneLabel } from "./timezones";
 import { themeVars } from "./palette";
 import type {
   AppState,
@@ -21,14 +22,6 @@ import type {
 } from "./types";
 
 const urgencyOptions: Urgency[] = ["low", "medium", "high"];
-const timezoneOptions = [
-  "America/Edmonton",
-  "America/Denver",
-  "America/Chicago",
-  "America/New_York",
-  "America/Los_Angeles",
-  "UTC"
-];
 
 type EditorDraft = {
   name: string;
@@ -118,6 +111,7 @@ export default function App() {
   const queue = useMemo(() => buildWorkQueue(state), [state]);
   const selectedDetails = selectedTask ? resolveTask(state, selectedTask) : null;
   const activeProject = view.type === "project" ? state.projects.find((project) => project.id === view.projectId) : null;
+  const minsUntilReset = useMinutesUntilMidnight(state.settings.timezone);
 
   function showToast(message: string, tone: Toast["tone"] = "neutral") {
     const id = uid("toast");
@@ -381,7 +375,7 @@ export default function App() {
           {view.type === "daily" && (
             <TaskListView
               title="Daily"
-              subtitle={`Recurring tasks reset on ${zonedToday(state.settings.timezone)} in ${state.settings.timezone}.`}
+              subtitle={`Recurring tasks reset in ${resetCountdownLabel(minsUntilReset)} (${state.settings.timezone}).`}
               color={state.dailyColor}
               onColorChange={(color) => updateState((current) => ({ ...current, dailyColor: color }))}
               tasks={state.dailyTasks}
@@ -714,12 +708,7 @@ function SettingsView({ state, setState }: { state: AppState; setState: (state: 
       <div className="grid gap-4 rounded-app border p-4" style={{ background: "var(--background-surface)", borderColor: "var(--border-subtle)" }}>
         <div className="field">
           <span className="label">Daily reset timezone</span>
-          <Dropdown
-            value={state.settings.timezone}
-            options={timezoneOptions.map((timezone) => ({ value: timezone, label: timezone }))}
-            onChange={(timezone) => setState({ ...state, settings: { ...state.settings, timezone } })}
-            ariaLabel="Daily reset timezone"
-          />
+          <TimezoneSelect value={state.settings.timezone} onChange={(timezone) => setState({ ...state, settings: { ...state.settings, timezone } })} />
         </div>
         <div className="subtle text-sm">Today in the selected timezone is {zonedToday(state.settings.timezone)}.</div>
       </div>
@@ -1212,6 +1201,20 @@ function ColorDot({ color }: { color: string }) {
   return <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: color }} />;
 }
 
+function TimezoneSelect({ value, onChange }: { value: string; onChange: (zone: string) => void }) {
+  return (
+    <select className="input" value={value} aria-label="Daily reset timezone" onChange={(e) => onChange(e.target.value)}>
+      {timezoneGroups.map(({ group, zones }) => (
+        <optgroup key={group} label={group}>
+          {zones.map((zone) => (
+            <option key={zone} value={zone}>{timezoneLabel(zone)}</option>
+          ))}
+        </optgroup>
+      ))}
+    </select>
+  );
+}
+
 function ThemePillToggle({ theme, onChange }: { theme: "light" | "dark"; onChange: (theme: "light" | "dark") => void }) {
   return (
     <div className="theme-pill">
@@ -1356,6 +1359,27 @@ function projectDependencyGroups(project: Project, excludeId?: string): Dependen
   }));
 }
 
+
+function useMinutesUntilMidnight(timezone: string): number {
+  const [minutes, setMinutes] = useState(() => minutesUntilMidnight(timezone));
+  const timezoneRef = useRef(timezone);
+  timezoneRef.current = timezone;
+  useEffect(() => {
+    const tick = () => setMinutes(minutesUntilMidnight(timezoneRef.current));
+    const id = window.setInterval(tick, 30_000);
+    return () => window.clearInterval(id);
+  }, []);
+  return minutes;
+}
+
+function resetCountdownLabel(minutes: number): string {
+  if (minutes <= 1) return "less than a minute";
+  if (minutes < 60) return `${minutes} minutes`;
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  if (mins === 0) return hours === 1 ? "1 hour" : `${hours} hours`;
+  return `${hours}h ${mins}m`;
+}
 
 function capitalize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);

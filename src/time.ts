@@ -21,3 +21,16 @@ export function dueSoon(dueDate: string | undefined, timezone: string): boolean 
   const days = (due.getTime() - today.getTime()) / 86_400_000;
   return days >= 0 && days <= 2;
 }
+
+export function minutesUntilMidnight(timezone: string, now = new Date()): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23"
+  }).formatToParts(now);
+  const get = (type: string) => parseInt(parts.find((p) => p.type === type)?.value ?? "0");
+  const elapsed = get("hour") * 3600 + get("minute") * 60 + get("second");
+  return Math.ceil((86400 - elapsed) / 60);
+}
