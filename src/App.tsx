@@ -648,7 +648,7 @@ function ProjectView(props: {
       </div>
       <div className="flex gap-4 overflow-x-auto pb-3">
         {project.milestones.map((milestone) => (
-          <div key={milestone.id} className="w-[320px] shrink-0 rounded-app border p-3" style={{ background: "var(--background-surface)", borderColor: "var(--border-subtle)" }}>
+          <div key={milestone.id} className="w-[420px] shrink-0 rounded-app border p-3" style={{ background: "var(--background-surface)", borderColor: "var(--border-subtle)" }}>
             <div className="mb-3 flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
                 <div className="mb-2 flex items-center gap-2">

@@ -191,11 +191,11 @@ button:disabled {
 }
 
 .stage-controls-compact {
-  @apply justify-end;
+  @apply min-w-[260px] flex-nowrap justify-end;
 }
 
 .stage-button {
-  @apply inline-flex items-center gap-1.5 rounded-app border px-2.5 py-1.5 text-xs font-semibold transition;
+  @apply inline-flex min-w-max items-center gap-1.5 whitespace-nowrap rounded-app border px-2.5 py-1.5 text-xs font-semibold transition;
   color: var(--foreground-secondary);
   background: var(--button-secondary-background);
   border-color: var(--border-subtle);
@@ -336,10 +336,18 @@ button:disabled {
 
 .btn-danger {
   color: var(--button-danger-text);
-  background: #7F1D1D;
+  background: var(--button-danger-background);
 }
 
 .btn-danger:hover {
+  background: var(--button-danger-background-hover);
+}
+
+.app-shell[style*="--color-scheme: dark"] .btn-danger {
+  background: #7F1D1D;
+}
+
+.app-shell[style*="--color-scheme: dark"] .btn-danger:hover {
   background: #991B1B;
 }
 
