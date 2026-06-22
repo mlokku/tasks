@@ -469,12 +469,12 @@ function Sidebar(props: {
   }
 
   return (
-    <aside className="sticky top-0 hidden h-screen w-72 shrink-0 border-r p-4 md:block" style={{ borderColor: "var(--border-subtle)", background: "var(--background-surface)" }}>
-      <div className="mb-6">
+    <aside className="sticky top-0 hidden h-screen w-72 shrink-0 flex-col border-r p-4 md:flex" style={{ borderColor: "var(--border-subtle)", background: "var(--background-surface)" }}>
+      <div className="mb-6 shrink-0">
         <div className="text-lg font-bold">Task Tracker</div>
         <div className="muted text-sm">Local v1 workspace</div>
       </div>
-      <nav className="flex flex-col gap-1">
+      <nav className="flex shrink-0 flex-col gap-1">
         <button className={navClass(view.type === "dashboard")} onClick={() => navigate({ type: "dashboard" })}>Dashboard</button>
         <button className={navClass(view.type === "general")} onClick={() => navigate({ type: "general" })}>
           <ColorDot color={state.generalColor} /> General
@@ -483,9 +483,9 @@ function Sidebar(props: {
           <ColorDot color={state.dailyColor} /> Daily
         </button>
       </nav>
-      <div className="mt-6">
-        <div className="label mb-2">Projects</div>
-        <nav className="flex flex-col gap-1">
+      <div className="mt-6 flex min-h-0 flex-1 flex-col">
+        <div className="label mb-2 shrink-0">Projects</div>
+        <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto pr-1">
           {state.projects.map((project) => (
             <button key={project.id} className={navClass(view.type === "project" && view.projectId === project.id)} onClick={() => navigate({ type: "project", projectId: project.id })}>
               <ColorDot color={project.color} /> <span className="min-w-0 flex-1 truncate">{project.name}</span>
@@ -493,12 +493,12 @@ function Sidebar(props: {
             </button>
           ))}
         </nav>
-        <div className="mt-3 flex gap-2">
+        <div className="mt-3 flex shrink-0 gap-2">
           <input className="input min-w-0" placeholder="New project" value={props.newProjectName} onChange={(event) => props.setNewProjectName(event.target.value)} />
           <IconButton variant="secondary" icon="add" label="Add project" onClick={props.addProject} />
         </div>
       </div>
-      <button className={`${navClass(view.type === "settings")} mt-6`} onClick={() => navigate({ type: "settings" })}>Settings</button>
+      <button className={`${navClass(view.type === "settings")} mt-6 shrink-0`} onClick={() => navigate({ type: "settings" })}>Settings</button>
     </aside>
   );
 }
