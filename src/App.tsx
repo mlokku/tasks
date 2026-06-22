@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { buildWorkQueue, blockedByNames, blockingNames } from "./prioritization";
 import { createInitialState, identityColors } from "./sampleData";
 import { loadState, saveState, uid } from "./store";
@@ -70,11 +71,29 @@ const taskStageOptions: { value: Exclude<TaskStage, "notStarted">; label: string
   { value: "complete", label: "Complete", tone: "green" }
 ];
 
+function viewToPath(view: View): string {
+  if (view.type === "general") return "/general";
+  if (view.type === "daily") return "/daily";
+  if (view.type === "project") return `/projects/${view.projectId}`;
+  if (view.type === "settings") return "/settings";
+  return "/";
+}
+
+function viewFromPath(pathname: string): View {
+  if (pathname === "/general") return { type: "general" };
+  if (pathname === "/daily") return { type: "daily" };
+  if (pathname.startsWith("/projects/")) {
+    const projectId = pathname.slice("/projects/".length);
+    if (projectId) return { type: "project", projectId };
+  }
+  if (pathname === "/settings") return { type: "settings" };
+  return { type: "dashboard" };
+}
+
 export default function App() {
   const [state, setState] = useState<AppState>(() => createInitialState());
   const [loaded, setLoaded] = useState(false);
   const [saveError, setSaveError] = useState("");
-  const [view, setView] = useState<View>({ type: "dashboard" });
   const [selectedTask, setSelectedTask] = useState<TaskRef | null>(null);
   const [editing, setEditing] = useState(false);
   const [addTarget, setAddTarget] = useState<AddTaskTarget | null>(null);
@@ -82,6 +101,22 @@ export default function App() {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [newProjectName, setNewProjectName] = useState("");
   const [newMilestoneName, setNewMilestoneName] = useState("");
+
+  const navigateRouter = useNavigate();
+  const location = useLocation();
+  const view = viewFromPath(location.pathname);
+
+  function setView(newView: View) {
+    navigateRouter(viewToPath(newView));
+    setSelectedTask(null);
+    setAddTarget(null);
+  }
+
+  // Also clear panels on browser back/forward
+  useEffect(() => {
+    setSelectedTask(null);
+    setAddTarget(null);
+  }, [location.pathname]);
 
   useEffect(() => {
     let cancelled = false;
@@ -346,7 +381,6 @@ export default function App() {
           state={state}
           view={view}
           setView={setView}
-          setSelectedTask={setSelectedTask}
           newProjectName={newProjectName}
           setNewProjectName={setNewProjectName}
           addProject={addProject}
@@ -405,7 +439,7 @@ export default function App() {
             />
           )}
           {view.type === "settings" && (
-            <SettingsView state={state} setState={setState} />
+            <SettingsView state={state} setState={setState} showToast={showToast} />
           )}
         </main>
       </div>
@@ -447,22 +481,16 @@ function Sidebar(props: {
   state: AppState;
   view: View;
   setView: (view: View) => void;
-  setSelectedTask: (ref: TaskRef | null) => void;
   newProjectName: string;
   setNewProjectName: (value: string) => void;
   addProject: () => void;
   onThemeChange: (theme: "light" | "dark") => void;
 }) {
-  const { state, view, setView, setSelectedTask } = props;
+  const { state, view, setView } = props;
   const navClass = (active: boolean) =>
     `flex w-full items-center gap-2 rounded-app px-3 py-2 text-left text-sm font-semibold transition ${
       active ? "bg-[var(--tile-active)] text-[var(--foreground-primary)]" : "text-[var(--foreground-secondary)] hover:bg-[var(--background-surface-hover)]"
     }`;
-
-  function navigate(nextView: View) {
-    setView(nextView);
-    setSelectedTask(null);
-  }
 
   return (
     <aside className="sticky top-0 hidden h-screen w-72 shrink-0 flex-col border-r p-4 md:flex" style={{ borderColor: "var(--border-subtle)", background: "var(--background-surface)" }}>
@@ -470,11 +498,11 @@ function Sidebar(props: {
         <div className="text-lg font-bold">Task<span className="font-normal" style={{ color: "var(--foreground-secondary)" }}>Tracker</span></div>
       </div>
       <nav className="flex shrink-0 flex-col gap-1">
-        <button className={navClass(view.type === "dashboard")} onClick={() => navigate({ type: "dashboard" })}>Dashboard</button>
-        <button className={navClass(view.type === "general")} onClick={() => navigate({ type: "general" })}>
+        <button className={navClass(view.type === "dashboard")} onClick={() => setView({ type: "dashboard" })}>Dashboard</button>
+        <button className={navClass(view.type === "general")} onClick={() => setView({ type: "general" })}>
           <ColorDot color={state.generalColor} /> General
         </button>
-        <button className={navClass(view.type === "daily")} onClick={() => navigate({ type: "daily" })}>
+        <button className={navClass(view.type === "daily")} onClick={() => setView({ type: "daily" })}>
           <ColorDot color={state.dailyColor} /> Daily
         </button>
       </nav>
@@ -482,7 +510,7 @@ function Sidebar(props: {
         <div className="label mb-2 shrink-0">Projects</div>
         <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto pr-1">
           {state.projects.map((project) => (
-            <button key={project.id} className={navClass(view.type === "project" && view.projectId === project.id)} onClick={() => navigate({ type: "project", projectId: project.id })}>
+            <button key={project.id} className={navClass(view.type === "project" && view.projectId === project.id)} onClick={() => setView({ type: "project", projectId: project.id })}>
               <ColorDot color={project.color} /> <span className="min-w-0 flex-1 truncate">{project.name}</span>
               <span className="muted text-xs">P{project.priority}</span>
             </button>
@@ -495,7 +523,7 @@ function Sidebar(props: {
       </div>
       <div className="mt-6 flex shrink-0 items-center gap-2">
         <ThemePillToggle theme={state.settings.theme} onChange={props.onThemeChange} />
-        <IconButton variant="secondary" icon="settings" label="Settings" onClick={() => navigate({ type: "settings" })} />
+        <IconButton variant="secondary" icon="settings" label="Settings" onClick={() => setView({ type: "settings" })} />
       </div>
     </aside>
   );
@@ -700,7 +728,11 @@ function ProjectView(props: {
   );
 }
 
-function SettingsView({ state, setState }: { state: AppState; setState: (state: AppState) => void }) {
+function SettingsView({ state, setState, showToast }: {
+  state: AppState;
+  setState: (state: AppState) => void;
+  showToast: (message: string, tone?: Toast["tone"]) => void;
+}) {
   return (
     <section className="mx-auto max-w-3xl">
       <Header title="Settings" subtitle="Controls that affect task behavior across the workspace." />
@@ -711,6 +743,7 @@ function SettingsView({ state, setState }: { state: AppState; setState: (state: 
         </div>
         <div className="subtle text-sm">Today in the selected timezone is {zonedToday(state.settings.timezone)}.</div>
       </div>
+      <ImportProjectSection state={state} setState={setState} showToast={showToast} />
     </section>
   );
 }
@@ -1378,6 +1411,202 @@ function resetCountdownLabel(minutes: number): string {
   const mins = minutes % 60;
   if (mins === 0) return hours === 1 ? "1 hour" : `${hours} hours`;
   return `${hours}h ${mins}m`;
+}
+
+// --- Project import ---
+
+type ImportRawTask = {
+  internalId: string;
+  name: string;
+  uuid: string | undefined;
+  notes: string | undefined;
+  urgency: Urgency;
+  stage: TaskStage;
+  dueDate: string | undefined;
+  dependencies: string[];
+};
+
+type ImportRawMilestone = {
+  internalId: string;
+  name: string;
+  urgency: Urgency;
+  notes: string | undefined;
+  tasks: ImportRawTask[];
+};
+
+function importStr(obj: Record<string, unknown>, ...keys: string[]): string | undefined {
+  for (const key of keys) {
+    const v = obj[key];
+    if (typeof v === "string" && v.trim()) return v.trim();
+  }
+}
+
+function importStrArr(obj: Record<string, unknown>, ...keys: string[]): string[] {
+  for (const key of keys) {
+    const v = obj[key];
+    if (Array.isArray(v)) return v.filter((x): x is string => typeof x === "string");
+  }
+  return [];
+}
+
+function importUrgency(obj: Record<string, unknown>, ...keys: string[]): Urgency {
+  for (const key of keys) {
+    const v = obj[key];
+    if (v === "low" || v === "medium" || v === "high") return v;
+  }
+  return "medium";
+}
+
+function importStage(obj: Record<string, unknown>, ...keys: string[]): TaskStage {
+  for (const key of keys) {
+    const v = obj[key];
+    if (v === "notStarted" || v === "inProgress" || v === "waitingReview" || v === "complete") return v;
+  }
+  return "notStarted";
+}
+
+function parseImportTask(raw: unknown, index: number): ImportRawTask {
+  if (!raw || typeof raw !== "object") throw new Error(`Task ${index + 1} must be an object.`);
+  const obj = raw as Record<string, unknown>;
+  const name = importStr(obj, "task name", "name");
+  if (!name) throw new Error(`Task ${index + 1} is missing a name ("task name" or "name").`);
+  return {
+    internalId: uid("project-task"),
+    name,
+    uuid: importStr(obj, "task uuid", "uuid", "id"),
+    notes: importStr(obj, "task notes", "notes"),
+    urgency: importUrgency(obj, "task urgency", "urgency"),
+    stage: importStage(obj, "task stage", "stage"),
+    dueDate: importStr(obj, "task due date", "dueDate", "due date", "due_date"),
+    dependencies: importStrArr(obj, "task dependencies", "dependencies", "dependencyIds", "dependency ids")
+  };
+}
+
+function parseImportMilestone(raw: unknown, index: number): ImportRawMilestone {
+  if (!raw || typeof raw !== "object") throw new Error(`Milestone ${index + 1} must be an object.`);
+  const obj = raw as Record<string, unknown>;
+  const name = importStr(obj, "milestone name", "name");
+  if (!name) throw new Error(`Milestone ${index + 1} is missing a name ("milestone name" or "name").`);
+  if (!Array.isArray(obj.tasks)) throw new Error(`Milestone "${name}" is missing a "tasks" array.`);
+  return {
+    internalId: uid("milestone"),
+    name,
+    urgency: importUrgency(obj, "urgency"),
+    notes: importStr(obj, "notes"),
+    tasks: (obj.tasks as unknown[]).map((t, i) => parseImportTask(t, i))
+  };
+}
+
+function buildProjectFromImport(raw: unknown, existingProjects: Project[]): Project {
+  if (!raw || typeof raw !== "object") throw new Error("Import data must be an object.");
+  const obj = raw as Record<string, unknown>;
+  const name = importStr(obj, "project name", "name");
+  if (!name) throw new Error('Project is missing a name ("project name" or "name").');
+  if (!Array.isArray(obj.milestones)) throw new Error('Project is missing a "milestones" array.');
+
+  const rawMilestones = (obj.milestones as unknown[]).map((m, i) => parseImportMilestone(m, i));
+
+  const uuidMap = new Map<string, string>();
+  for (const m of rawMilestones) {
+    for (const t of m.tasks) {
+      if (t.uuid) uuidMap.set(t.uuid, t.internalId);
+    }
+  }
+
+  const color = typeof obj.color === "string" ? obj.color : identityColors[existingProjects.length % identityColors.length];
+  const priority = typeof obj.priority === "number" && obj.priority >= 1 && obj.priority <= 10 ? Math.round(obj.priority) : 5;
+
+  return {
+    id: uid("project"),
+    name,
+    priority,
+    color,
+    notes: importStr(obj, "notes"),
+    milestones: rawMilestones.map((m) => ({
+      id: m.internalId,
+      name: m.name,
+      urgency: m.urgency,
+      notes: m.notes,
+      tasks: m.tasks.map((t) => ({
+        id: t.internalId,
+        name: t.name,
+        completed: t.stage === "complete",
+        stage: t.stage,
+        urgency: t.urgency,
+        dueDate: t.dueDate,
+        notes: t.notes,
+        dependencyIds: t.dependencies
+          .map((uuid) => uuidMap.get(uuid))
+          .filter((id): id is string => id !== undefined)
+      }))
+    }))
+  };
+}
+
+function ImportProjectSection({ state, setState, showToast }: {
+  state: AppState;
+  setState: (state: AppState) => void;
+  showToast: (message: string, tone?: Toast["tone"]) => void;
+}) {
+  const [json, setJson] = useState("");
+  const [error, setError] = useState("");
+
+  function handleImport() {
+    setError("");
+    let raw: unknown;
+    try {
+      raw = JSON.parse(json);
+    } catch {
+      setError("Invalid JSON — check your input and try again.");
+      return;
+    }
+    try {
+      const project = buildProjectFromImport(raw, state.projects);
+      setState({ ...state, projects: [...state.projects, project] });
+      setJson("");
+      showToast(`"${project.name}" imported`, "success");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to parse project data.");
+    }
+  }
+
+  const placeholder = `{
+  "project name": "My Project",
+  "milestones": [
+    {
+      "milestone name": "Sprint 1",
+      "tasks": [
+        { "task name": "Setup", "task uuid": "t1", "task urgency": "high" },
+        { "task name": "Build", "task uuid": "t2", "dependencies": ["t1"] }
+      ]
+    }
+  ]
+}`;
+
+  return (
+    <div className="mt-6 rounded-app border p-4" style={{ background: "var(--background-surface)", borderColor: "var(--border-subtle)" }}>
+      <div className="mb-3">
+        <div className="label mb-1">Import project</div>
+        <p className="subtle text-sm">Paste a JSON project definition. Task UUIDs are used to resolve dependencies and then discarded.</p>
+      </div>
+      <textarea
+        className="input min-h-40 font-mono text-xs"
+        placeholder={placeholder}
+        value={json}
+        onChange={(e) => { setJson(e.target.value); setError(""); }}
+      />
+      {error && (
+        <div className="mt-2 rounded-app border px-3 py-2 text-sm" style={{ background: "var(--status-red-background)", borderColor: "var(--status-red-bar)", color: "var(--status-red-text)" }}>
+          {error}
+        </div>
+      )}
+      <div className="mt-3 flex justify-end">
+        <button className="btn btn-primary" type="button" disabled={!json.trim()} onClick={handleImport}>
+          Import project
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function capitalize(value: string): string {
