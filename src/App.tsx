@@ -529,6 +529,160 @@ function Sidebar(props: {
   );
 }
 
+function SummaryTile({ completedToday, totalDaily, generalRemaining }: {
+  completedToday: number;
+  totalDaily: number;
+  generalRemaining: number;
+}) {
+  return (
+    <div className="tile p-4">
+      <div className="label mb-3">Summary</div>
+      <div className="grid gap-4">
+        <div>
+          <div className="subtle text-xs mb-1">Daily tasks done</div>
+          <div className="text-2xl font-bold">
+            {completedToday}
+            <span className="muted text-base font-normal">/{totalDaily}</span>
+          </div>
+        </div>
+        <div>
+          <div className="subtle text-xs mb-1">General remaining</div>
+          <div className="text-2xl font-bold">{generalRemaining}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProjectProgressList({ projects }: { projects: Project[] }) {
+  return (
+    <div className="tile p-4">
+      <div className="label mb-3">Projects</div>
+      {projects.length === 0 ? (
+        <div className="muted text-xs">No projects yet.</div>
+      ) : (
+        <div className="grid gap-3">
+          {projects.map((project) => {
+            const allTasks = project.milestones.flatMap((m) => m.tasks);
+            const completed = allTasks.filter((t) => t.completed).length;
+            const total = allTasks.length;
+            const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+            return (
+              <div key={project.id}>
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <ColorDot color={project.color} />
+                    <span className="text-xs font-semibold truncate">{project.name}</span>
+                  </div>
+                  <span className="muted text-xs shrink-0 ml-2">{pct}%</span>
+                </div>
+                <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--border-subtle)" }}>
+                  <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: project.color }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MiniCalendar({ state }: { state: AppState }) {
+  const now = new Date();
+  const [year, setYear] = useState(now.getFullYear());
+  const [month, setMonth] = useState(now.getMonth());
+
+  const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const dayNames = ["S","M","T","W","T","F","S"];
+
+  const prefix = `${year}-${String(month + 1).padStart(2, "0")}-`;
+  const allTasks = [
+    ...state.generalTasks,
+    ...state.dailyTasks,
+    ...state.projects.flatMap((p) => p.milestones.flatMap((m) => m.tasks)),
+  ];
+  const dueCounts: Record<number, number> = {};
+  for (const task of allTasks) {
+    if (task.dueDate && !task.completed && task.dueDate.startsWith(prefix)) {
+      const day = parseInt(task.dueDate.slice(8, 10), 10);
+      dueCounts[day] = (dueCounts[day] || 0) + 1;
+    }
+  }
+
+  const firstDow = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const isCurrentMonth = year === now.getFullYear() && month === now.getMonth();
+  const todayDate = now.getDate();
+
+  function prevMonth() {
+    if (month === 0) { setYear((y) => y - 1); setMonth(11); }
+    else setMonth((m) => m - 1);
+  }
+  function nextMonth() {
+    if (month === 11) { setYear((y) => y + 1); setMonth(0); }
+    else setMonth((m) => m + 1);
+  }
+
+  const cells: (number | null)[] = [];
+  for (let i = 0; i < firstDow; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+  return (
+    <div className="tile p-4">
+      <div className="flex items-center justify-between mb-3">
+        <button className="icon-btn" onClick={prevMonth} aria-label="Previous month">
+          <MaterialIcon name="chevron_left" />
+        </button>
+        <span className="text-sm font-semibold">{monthNames[month]} {year}</span>
+        <button className="icon-btn" onClick={nextMonth} aria-label="Next month">
+          <MaterialIcon name="chevron_right" />
+        </button>
+      </div>
+      <div className="grid grid-cols-7 text-center text-xs">
+        {dayNames.map((d, i) => (
+          <div key={i} className="label py-1">{d}</div>
+        ))}
+        {cells.map((day, i) => {
+          const isToday = isCurrentMonth && day === todayDate;
+          const count = day ? (dueCounts[day] ?? 0) : 0;
+          const dots = Math.min(count, 3);
+          return (
+            <div key={i} className="flex flex-col items-center py-0.5">
+              {day !== null && (
+                <>
+                  <span
+                    className="flex h-6 w-6 items-center justify-center rounded-full text-xs"
+                    style={isToday ? { background: "var(--accent-brand)", color: "var(--button-primary-text)", fontWeight: 700 } : {}}
+                  >
+                    {day}
+                  </span>
+                  {dots > 0 && (
+                    <div className="mt-0.5 flex gap-0.5">
+                      {Array.from({ length: dots }).map((_, j) => (
+                        <span key={j} className="h-1 w-1 rounded-full" style={{ background: "var(--accent-brand)" }} />
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function InboxTile() {
+  return (
+    <div className="tile p-4">
+      <div className="label mb-3">Inbox</div>
+      <div className="muted text-center text-sm py-6">No messages yet.</div>
+    </div>
+  );
+}
+
 function Dashboard(props: {
   state: AppState;
   queue: WorkQueueItem[];
@@ -536,27 +690,39 @@ function Dashboard(props: {
   setTaskStage: (ref: TaskRef, stage: TaskStage) => void;
 }) {
   const { state, queue, openTask, setTaskStage } = props;
-  const completedToday = state.dailyTasks.filter((task) => task.completed).length;
-  const activeProjects = state.projects.length;
-  const blockedCount = buildWorkQueue(state, true).filter((item) => item.blockedBy.length).length;
+  const completedToday = state.dailyTasks.filter((t) => t.completed).length;
+  const generalRemaining = state.generalTasks.filter((t) => !t.completed).length;
 
   return (
-    <section className="mx-auto max-w-6xl">
-      <Header title="Dashboard" subtitle="Prioritized actionable work across general, daily, and project tasks." />
-      <div className="mb-5 grid gap-3 md:grid-cols-3">
-        <Metric label="Daily done" value={`${completedToday}/${state.dailyTasks.length}`} />
-        <Metric label="Active projects" value={String(activeProjects)} />
-        <Metric label="Blocked tasks" value={String(blockedCount)} />
+    <section className="mx-auto max-w-[1400px]">
+      <div className="mb-4">
+        <h1 className="text-2xl font-bold">Dashboard</h1>
       </div>
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-base font-bold">Work queue</h2>
-        <span className="muted text-sm">Due dates warn, priority still leads.</span>
+      <div className="mb-6 flex justify-center">
+        <div className="h-px w-4/5" style={{ background: "var(--border-subtle)" }} />
       </div>
-      <div className="mt-3 grid gap-2">
-        {queue.length === 0 && <EmptyState text="No active unblocked work." />}
-        {queue.map((item) => (
-          <QueueRow key={item.id} item={item} timezone={state.settings.timezone} openTask={openTask} setTaskStage={setTaskStage} />
-        ))}
+      <div className="grid gap-4" style={{ gridTemplateColumns: "1fr 1fr 2fr", alignItems: "start" }}>
+        <div className="grid gap-4">
+          <SummaryTile
+            completedToday={completedToday}
+            totalDaily={state.dailyTasks.length}
+            generalRemaining={generalRemaining}
+          />
+          <ProjectProgressList projects={state.projects} />
+        </div>
+        <div className="grid gap-4">
+          <MiniCalendar state={state} />
+          <InboxTile />
+        </div>
+        <div>
+          <h2 className="text-base font-bold mb-3">Work queue</h2>
+          <div className="grid gap-2">
+            {queue.length === 0 && <EmptyState text="No active unblocked work." />}
+            {queue.map((item) => (
+              <QueueRow key={item.id} item={item} timezone={state.settings.timezone} openTask={openTask} setTaskStage={setTaskStage} />
+            ))}
+          </div>
+        </div>
       </div>
     </section>
   );
