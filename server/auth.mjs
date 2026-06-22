@@ -1,4 +1,8 @@
 import express from "express";
+import { randomBytes } from "node:crypto";
+import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   generateRegistrationOptions,
   verifyRegistrationResponse,
@@ -15,15 +19,24 @@ import {
 } from "./database.mjs";
 
 const RP_ID = process.env.WEBAUTHN_RP_ID || "localhost";
-const RP_ORIGIN = process.env.WEBAUTHN_RP_ORIGIN || "http://localhost:5173";
+const RP_ORIGIN = process.env.WEBAUTHN_RP_ORIGIN || "http://localhost:8000";
 const RP_NAME = process.env.WEBAUTHN_RP_NAME || "Task Tracker";
 
-if (!process.env.JWT_SECRET) {
-  console.error("FATAL: JWT_SECRET environment variable is required.");
-  console.error("Generate one with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"");
-  process.exit(1);
+function resolveJwtSecret() {
+  if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
+  const secretFile = resolve(dirname(fileURLToPath(import.meta.url)), "../data/jwt-secret.local");
+  try {
+    return readFileSync(secretFile, "utf8").trim();
+  } catch {
+    const generated = randomBytes(32).toString("hex");
+    mkdirSync(dirname(secretFile), { recursive: true });
+    writeFileSync(secretFile, generated, { mode: 0o600 });
+    console.log("Generated JWT secret saved to", secretFile);
+    return generated;
+  }
 }
-const SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
+
+const SECRET = new TextEncoder().encode(resolveJwtSecret());
 
 // In-memory challenge store — single user, 90s TTL
 let pendingChallenge = null;
