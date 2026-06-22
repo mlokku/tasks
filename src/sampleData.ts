@@ -2,14 +2,16 @@ import type { AppState } from "./types";
 import { zonedToday } from "./time";
 
 export const identityColors = [
-  "#00C2A8",
-  "#F97316",
-  "#38BDF8",
-  "#E11D48",
-  "#8B5CF6",
-  "#22C55E",
-  "#F59E0B",
-  "#EC4899"
+  "#800000",
+  "#808000",
+  "#469990",
+  "#000075",
+  "#42d4f4",
+  "#911eb4",
+  "#bfef45",
+  "#f58231",
+  "#fabed4",
+  "#aaffc3"
 ];
 
 export function createInitialState(): AppState {
