@@ -1,8 +1,0 @@
-{% extends "base.html" %}
-{% block title %}Up Next - TaskTracker{% endblock %}
-{% block content %}
-  <section class="dashboard-head">
-    <div><h1>Up Next</h1><p>Incomplete work with no open dependencies and no earlier incomplete milestone gates.</p></div>
-  </section>
-  {% include "tasks/_task_list.html" with tasks=tasks %}
-{% endblock %}
