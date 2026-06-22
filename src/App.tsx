@@ -109,7 +109,7 @@ export default function App() {
         .then(() => setSaveError(""))
         .catch((error) => {
           console.error(error);
-          setSaveError("Unable to save changes to SQLite.");
+          setSaveError("Your changes could not be saved. Please try again.");
         });
     }, 250);
     return () => window.clearTimeout(timeout);
@@ -356,9 +356,10 @@ export default function App() {
           newProjectName={newProjectName}
           setNewProjectName={setNewProjectName}
           addProject={addProject}
+          onThemeChange={(theme) => setState((current) => ({ ...current, settings: { ...current.settings, theme } }))}
         />
         <main className="min-w-0 flex-1 px-4 py-4 md:px-6">
-          {!loaded && <div className="mb-4 rounded-app border p-3 text-sm subtle" style={{ background: "var(--background-surface)", borderColor: "var(--border-subtle)" }}>Loading SQLite data...</div>}
+          {!loaded && <div className="mb-4 rounded-app border p-3 text-sm subtle" style={{ background: "var(--background-surface)", borderColor: "var(--border-subtle)" }}>Loading your workspace...</div>}
           {saveError && <div className="mb-4 rounded-app border p-3 text-sm" style={{ background: "var(--status-red-background)", borderColor: "var(--status-red-bar)", color: "var(--status-red-text)" }}>{saveError}</div>}
           {view.type === "dashboard" && (
             <Dashboard state={state} queue={queue} openTask={openTask} setTaskStage={setTaskStage} />
@@ -456,6 +457,7 @@ function Sidebar(props: {
   newProjectName: string;
   setNewProjectName: (value: string) => void;
   addProject: () => void;
+  onThemeChange: (theme: "light" | "dark") => void;
 }) {
   const { state, view, setView, setSelectedTask } = props;
   const navClass = (active: boolean) =>
@@ -498,7 +500,10 @@ function Sidebar(props: {
           <IconButton variant="secondary" icon="add" label="Add project" onClick={props.addProject} />
         </div>
       </div>
-      <button className={`${navClass(view.type === "settings")} mt-6 shrink-0`} onClick={() => navigate({ type: "settings" })}>Settings</button>
+      <div className="mt-6 flex shrink-0 items-center gap-2">
+        <ThemePillToggle theme={state.settings.theme} onChange={props.onThemeChange} />
+        <IconButton variant="secondary" icon="settings" label="Settings" onClick={() => navigate({ type: "settings" })} />
+      </div>
     </aside>
   );
 }
@@ -714,15 +719,6 @@ function SettingsView({ state, setState }: { state: AppState; setState: (state: 
             options={timezoneOptions.map((timezone) => ({ value: timezone, label: timezone }))}
             onChange={(timezone) => setState({ ...state, settings: { ...state.settings, timezone } })}
             ariaLabel="Daily reset timezone"
-          />
-        </div>
-        <div className="field">
-          <span className="label">Theme</span>
-          <Dropdown
-            value={state.settings.theme}
-            options={[{ value: "dark", label: "Dark" }, { value: "light", label: "Light" }]}
-            onChange={(theme) => setState({ ...state, settings: { ...state.settings, theme: theme as AppState["settings"]["theme"] } })}
-            ariaLabel="Theme"
           />
         </div>
         <div className="subtle text-sm">Today in the selected timezone is {zonedToday(state.settings.timezone)}.</div>
@@ -1214,6 +1210,21 @@ function Detail({ label, value }: { label: string; value: string }) {
 
 function ColorDot({ color }: { color: string }) {
   return <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: color }} />;
+}
+
+function ThemePillToggle({ theme, onChange }: { theme: "light" | "dark"; onChange: (theme: "light" | "dark") => void }) {
+  return (
+    <div className="theme-pill">
+      <button type="button" className={"theme-pill-option " + (theme === "light" ? "theme-pill-active" : "")} onClick={() => onChange("light")} aria-label="Light mode" aria-pressed={theme === "light"}>
+        <MaterialIcon name="light_mode" />
+        <span>Light</span>
+      </button>
+      <button type="button" className={"theme-pill-option " + (theme === "dark" ? "theme-pill-active" : "")} onClick={() => onChange("dark")} aria-label="Dark mode" aria-pressed={theme === "dark"}>
+        <MaterialIcon name="dark_mode" />
+        <span>Dark</span>
+      </button>
+    </div>
+  );
 }
 
 type ResolvedTask = {

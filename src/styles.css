@@ -374,3 +374,24 @@ button:disabled {
 .subtle {
   color: var(--foreground-secondary);
 }
+
+.theme-pill {
+  @apply flex flex-1 items-center gap-0.5 rounded-full p-0.5;
+  background: var(--input-background);
+  border: 1px solid var(--border-subtle);
+}
+
+.theme-pill-option {
+  @apply flex flex-1 items-center justify-center gap-1 rounded-full px-2 py-1.5 text-xs font-semibold transition;
+  color: var(--foreground-tertiary);
+}
+
+.theme-pill-option .material-symbols-rounded {
+  font-size: 15px;
+}
+
+.theme-pill-active {
+  color: var(--foreground-primary);
+  background: var(--background-surface-elevated);
+  box-shadow: 0 1px 3px var(--shadow-default);
+}
