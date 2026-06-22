@@ -44,7 +44,7 @@ class Project(models.Model):
     name = models.CharField(max_length=160)
     description = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_ACTIVE)
-    color = models.CharField(max_length=7, blank=True, default="#0077B6")
+    color = models.CharField(max_length=7, blank=True, default="#FEFDF8")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

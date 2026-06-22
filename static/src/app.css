@@ -422,15 +422,23 @@
   }
 
   .theme-switch {
-    @apply relative inline-grid h-9 min-h-0 w-20 grid-cols-2 items-center rounded-full border border-line bg-app-elevated p-1 shadow-none hover:bg-app-hover;
+    @apply relative inline-grid h-9 min-h-0 w-20 grid-cols-2 items-center rounded-full border p-1 shadow-none;
+    border-color: var(--color-border-default);
+    background-color: var(--color-background-surface-pressed);
+  }
+
+  .theme-switch:hover {
+    background-color: var(--color-background-surface-hover);
   }
 
   .switch-icon {
-    @apply z-10 text-center text-sm font-extrabold text-fg-tertiary;
+    @apply z-10 text-center text-sm font-extrabold;
+    color: var(--color-foreground-tertiary);
   }
 
   .switch-knob {
-    @apply absolute left-1 h-7 w-9 rounded-full bg-brand transition-transform duration-200;
+    @apply absolute left-1 h-7 w-9 rounded-full transition-transform duration-200;
+    background-color: var(--color-foreground-primary);
   }
 
   .dark .switch-knob {
@@ -439,7 +447,7 @@
 
   .dark .switch-icon.moon,
   :root:not(.dark) .switch-icon.sun {
-    @apply text-fg-inverse;
+    color: var(--color-foreground-inverse);
   }
 
   .quick-actions {
