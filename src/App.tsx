@@ -497,14 +497,23 @@ function Sidebar(props: {
       <div className="mb-6 shrink-0">
         <div className="text-lg font-bold">Task<span className="font-normal" style={{ color: "var(--foreground-secondary)" }}>Tracker</span></div>
       </div>
-      <nav className="flex shrink-0 flex-col gap-1">
-        <button className={navClass(view.type === "dashboard")} onClick={() => setView({ type: "dashboard" })}>Dashboard</button>
-        <button className={navClass(view.type === "general")} onClick={() => setView({ type: "general" })}>
-          <ColorDot color={state.generalColor} /> General
-        </button>
-        <button className={navClass(view.type === "daily")} onClick={() => setView({ type: "daily" })}>
-          <ColorDot color={state.dailyColor} /> Daily
-        </button>
+      <nav className="flex shrink-0 flex-col">
+        <div className="mb-3 pb-3" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+          <button
+            className={`flex w-full items-center gap-2 rounded-app px-3 py-2.5 text-left text-base font-bold transition ${view.type === "dashboard" ? "bg-[var(--tile-active)] text-[var(--foreground-primary)]" : "text-[var(--foreground-secondary)] hover:bg-[var(--background-surface-hover)]"}`}
+            onClick={() => setView({ type: "dashboard" })}
+          >
+            Dashboard
+          </button>
+        </div>
+        <div className="flex flex-col gap-1">
+          <button className={navClass(view.type === "general")} onClick={() => setView({ type: "general" })}>
+            <ColorDot color={state.generalColor} /> General
+          </button>
+          <button className={navClass(view.type === "daily")} onClick={() => setView({ type: "daily" })}>
+            <ColorDot color={state.dailyColor} /> Daily
+          </button>
+        </div>
       </nav>
       <div className="mt-6 flex min-h-0 flex-1 flex-col">
         <div className="label mb-2 shrink-0">Projects</div>
@@ -699,7 +708,7 @@ function Dashboard(props: {
         <h1 className="text-2xl font-bold">Dashboard</h1>
       </div>
       <div className="mb-6 flex justify-center">
-        <div className="h-px w-4/5" style={{ background: "var(--border-subtle)" }} />
+        <div className="h-px w-[95%]" style={{ background: "var(--border-subtle)" }} />
       </div>
       <div className="grid gap-4" style={{ gridTemplateColumns: "1fr 1fr 2fr", alignItems: "start" }}>
         <div className="grid gap-4">
