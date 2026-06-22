@@ -1,12 +1,12 @@
 import { createInitialState } from "./sampleData";
 import { zonedToday } from "./time";
-import type { AppState } from "./types";
+import type { AppState, TaskBase, TaskStage } from "./types";
 
 export async function loadState(): Promise<AppState> {
   try {
     const response = await fetch("/api/state");
     if (!response.ok) throw new Error(`Unable to load state: ${response.status}`);
-    return applyDailyReset(await response.json() as AppState);
+    return applyDailyReset(normalizeState(await response.json() as AppState));
   } catch (error) {
     console.error(error);
     return createInitialState();
@@ -23,6 +23,26 @@ export async function saveState(state: AppState): Promise<AppState> {
   return await response.json() as AppState;
 }
 
+function normalizeTask<T extends TaskBase>(task: T): T {
+  const stage: TaskStage = task.stage ?? (task.completed ? "complete" : "notStarted");
+  return { ...task, stage, completed: stage === "complete" };
+}
+
+function normalizeState(state: AppState): AppState {
+  return {
+    ...state,
+    generalTasks: state.generalTasks.map(normalizeTask),
+    dailyTasks: state.dailyTasks.map(normalizeTask),
+    projects: state.projects.map((project) => ({
+      ...project,
+      milestones: project.milestones.map((milestone) => ({
+        ...milestone,
+        tasks: milestone.tasks.map(normalizeTask)
+      }))
+    }))
+  };
+}
+
 export function applyDailyReset(state: AppState): AppState {
   const today = zonedToday(state.settings.timezone);
   if (state.lastDailyResetDate === today) return state;
@@ -33,6 +53,7 @@ export function applyDailyReset(state: AppState): AppState {
     dailyTasks: state.dailyTasks.map((task) => ({
       ...task,
       completed: false,
+      stage: "notStarted",
       completedOn: undefined
     }))
   };

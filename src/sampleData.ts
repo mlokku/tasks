@@ -27,6 +27,7 @@ export function createInitialState(): AppState {
         id: "general-1",
         name: "Return supplier quote with chosen option",
         completed: false,
+        stage: "notStarted",
         urgency: "high",
         dueDate: "2026-06-24",
         notes: "Confirm price hold before replying."
@@ -35,6 +36,7 @@ export function createInitialState(): AppState {
         id: "general-2",
         name: "Order replacement label rolls",
         completed: false,
+        stage: "notStarted",
         urgency: "medium"
       }
     ],
@@ -43,12 +45,14 @@ export function createInitialState(): AppState {
         id: "daily-1",
         name: "Check the dispatch box",
         completed: false,
+        stage: "notStarted",
         urgency: "high"
       },
       {
         id: "daily-2",
         name: "Review incoming requests",
         completed: false,
+        stage: "notStarted",
         urgency: "medium",
         notes: "Capture anything actionable as a general or project task."
       }
@@ -70,6 +74,7 @@ export function createInitialState(): AppState {
                 id: "project-task-1",
                 name: "Confirm aisle map changes",
                 completed: false,
+                stage: "notStarted",
                 urgency: "high",
                 dueDate: "2026-06-25",
                 notes: "Needed before labels are printed.",
@@ -79,6 +84,7 @@ export function createInitialState(): AppState {
                 id: "project-task-2",
                 name: "Approve final label format",
                 completed: false,
+                stage: "notStarted",
                 urgency: "medium",
                 dependencyIds: ["project-task-1"]
               }
@@ -93,6 +99,7 @@ export function createInitialState(): AppState {
                 id: "project-task-3",
                 name: "Print bin labels",
                 completed: false,
+                stage: "notStarted",
                 urgency: "high",
                 dependencyIds: ["project-task-2"]
               },
@@ -100,6 +107,7 @@ export function createInitialState(): AppState {
                 id: "project-task-4",
                 name: "Update picking checklist",
                 completed: false,
+                stage: "notStarted",
                 urgency: "low",
                 dependencyIds: []
               }
@@ -122,6 +130,7 @@ export function createInitialState(): AppState {
                 id: "project-task-5",
                 name: "Create kickoff checklist",
                 completed: false,
+                stage: "notStarted",
                 urgency: "high",
                 dependencyIds: []
               }

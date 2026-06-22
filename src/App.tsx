@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { buildWorkQueue, blockedByNames, blockingNames, getProjectTaskMaps } from "./prioritization";
+import { buildWorkQueue, blockedByNames, blockingNames } from "./prioritization";
 import { createInitialState, identityColors } from "./sampleData";
 import { loadState, saveState, uid } from "./store";
 import { dueSoon, isOverdue, zonedToday } from "./time";
@@ -14,6 +14,7 @@ import type {
   ProjectTask,
   TaskBase,
   TaskRef,
+  TaskStage,
   Urgency,
   View,
   WorkQueueItem
@@ -37,6 +38,26 @@ type EditorDraft = {
   dependencyIds: string[];
 };
 
+type Toast = {
+  id: string;
+  message: string;
+  tone: "success" | "danger" | "neutral";
+};
+
+type ConfirmRequest = {
+  title: string;
+  message: string;
+  confirmLabel: string;
+  tone: "danger" | "primary";
+  onConfirm: () => void;
+};
+
+type DependencyGroup = {
+  id: string;
+  name: string;
+  tasks: { id: string; label: string }[];
+};
+
 type AddTaskTarget =
   | { kind: "general" }
   | { kind: "daily" }
@@ -50,6 +71,12 @@ const emptyDraft: EditorDraft = {
   dependencyIds: []
 };
 
+const taskStageOptions: { value: Exclude<TaskStage, "notStarted">; label: string; tone: "blue" | "yellow" | "green" }[] = [
+  { value: "inProgress", label: "In progress", tone: "blue" },
+  { value: "waitingReview", label: "Waiting for review", tone: "yellow" },
+  { value: "complete", label: "Complete", tone: "green" }
+];
+
 export default function App() {
   const [state, setState] = useState<AppState>(() => createInitialState());
   const [loaded, setLoaded] = useState(false);
@@ -58,6 +85,8 @@ export default function App() {
   const [selectedTask, setSelectedTask] = useState<TaskRef | null>(null);
   const [editing, setEditing] = useState(false);
   const [addTarget, setAddTarget] = useState<AddTaskTarget | null>(null);
+  const [confirmRequest, setConfirmRequest] = useState<ConfirmRequest | null>(null);
+  const [toasts, setToasts] = useState<Toast[]>([]);
   const [newProjectName, setNewProjectName] = useState("");
   const [newMilestoneName, setNewMilestoneName] = useState("");
 
@@ -90,6 +119,18 @@ export default function App() {
   const selectedDetails = selectedTask ? resolveTask(state, selectedTask) : null;
   const activeProject = view.type === "project" ? state.projects.find((project) => project.id === view.projectId) : null;
 
+  function showToast(message: string, tone: Toast["tone"] = "neutral") {
+    const id = uid("toast");
+    setToasts((current) => [...current, { id, message, tone }]);
+    window.setTimeout(() => {
+      setToasts((current) => current.filter((toast) => toast.id !== id));
+    }, 3200);
+  }
+
+  function requestConfirm(request: ConfirmRequest) {
+    setConfirmRequest(request);
+  }
+
   function updateState(mutator: (current: AppState) => AppState) {
     setState((current) => mutator(current));
   }
@@ -99,15 +140,11 @@ export default function App() {
     setEditing(false);
   }
 
-  function toggleTask(ref: TaskRef) {
+  function setTaskStage(ref: TaskRef, stage: TaskStage) {
     updateState((current) => updateTask(current, ref, (task, context) => {
       if (context?.blockedBy.length) return task;
-      const completed = !task.completed;
-      return {
-        ...task,
-        completed,
-        ...(ref.kind === "daily" ? { completedOn: completed ? zonedToday(current.settings.timezone) : undefined } : {})
-      };
+      const nextStage = taskStage(task) === stage ? "notStarted" : stage;
+      return withTaskStage(task, nextStage, ref.kind === "daily" ? current.settings.timezone : undefined);
     }));
   }
 
@@ -121,13 +158,22 @@ export default function App() {
       ...(ref.kind === "project" ? { dependencyIds: draft.dependencyIds.filter((id) => id !== ref.taskId) } : {})
     })));
     setEditing(false);
+    showToast("Task saved", "success");
   }
 
   function deleteTask(ref: TaskRef) {
-    if (!window.confirm("Delete this task?")) return;
-    updateState((current) => removeTask(current, ref));
-    setSelectedTask(null);
-    setEditing(false);
+    requestConfirm({
+      title: "Delete task",
+      message: "Delete this task? This cannot be undone.",
+      confirmLabel: "Delete",
+      tone: "danger",
+      onConfirm: () => {
+        updateState((current) => removeTask(current, ref));
+        setSelectedTask(null);
+        setEditing(false);
+        showToast("Task deleted", "danger");
+      }
+    });
   }
 
   function addTask(target: AddTaskTarget, draft: EditorDraft) {
@@ -144,6 +190,7 @@ export default function App() {
               id: uid("general"),
               name,
               completed: false,
+              stage: "notStarted",
               urgency: draft.urgency,
               dueDate: draft.dueDate || undefined,
               notes: draft.notes.trim() || undefined
@@ -161,6 +208,7 @@ export default function App() {
               id: uid("daily"),
               name,
               completed: false,
+              stage: "notStarted",
               urgency: draft.urgency,
               dueDate: draft.dueDate || undefined,
               notes: draft.notes.trim() || undefined
@@ -181,6 +229,7 @@ export default function App() {
                 id: uid("project-task"),
                 name,
                 completed: false,
+                stage: "notStarted",
                 urgency: draft.urgency,
                 dueDate: draft.dueDate || undefined,
                 notes: draft.notes.trim() || undefined,
@@ -192,6 +241,7 @@ export default function App() {
       };
     });
     setAddTarget(null);
+    showToast("Task saved", "success");
   }
 
   function addProject() {
@@ -218,6 +268,7 @@ export default function App() {
       ]
     }));
     setNewProjectName("");
+    showToast("Project added", "success");
   }
 
   function addMilestone(projectId: string) {
@@ -239,42 +290,59 @@ export default function App() {
       })
     }));
     setNewMilestoneName("");
+    showToast("Milestone added", "success");
   }
 
   function deleteProject(projectId: string) {
-    if (!window.confirm("Delete this project and all of its milestones and tasks?")) return;
-    updateState((current) => ({
-      ...current,
-      projects: current.projects.filter((project) => project.id !== projectId)
-    }));
-    setView({ type: "dashboard" });
-    setSelectedTask(null);
-    setAddTarget(null);
+    requestConfirm({
+      title: "Delete project",
+      message: "Delete this project and all of its milestones and tasks? This cannot be undone.",
+      confirmLabel: "Delete project",
+      tone: "danger",
+      onConfirm: () => {
+        updateState((current) => ({
+          ...current,
+          projects: current.projects.filter((project) => project.id !== projectId)
+        }));
+        setView({ type: "dashboard" });
+        setSelectedTask(null);
+        setAddTarget(null);
+        showToast("Project deleted", "danger");
+      }
+    });
   }
 
   function deleteMilestone(projectId: string, milestoneId: string) {
-    if (!window.confirm("Delete this milestone and all of its tasks?")) return;
-    updateState((current) => ({
-      ...current,
-      projects: current.projects.map((project) => {
-        if (project.id !== projectId) return project;
-        const removedTaskIds = new Set(project.milestones.find((milestone) => milestone.id === milestoneId)?.tasks.map((task) => task.id) ?? []);
-        return {
-          ...project,
-          milestones: project.milestones
-            .filter((milestone) => milestone.id !== milestoneId)
-            .map((milestone) => ({
-              ...milestone,
-              tasks: milestone.tasks.map((task) => ({
-                ...task,
-                dependencyIds: task.dependencyIds.filter((id) => !removedTaskIds.has(id))
-              }))
-            }))
-        };
-      })
-    }));
-    setSelectedTask(null);
-    setAddTarget(null);
+    requestConfirm({
+      title: "Delete milestone",
+      message: "Delete this milestone and all of its tasks? This cannot be undone.",
+      confirmLabel: "Delete milestone",
+      tone: "danger",
+      onConfirm: () => {
+        updateState((current) => ({
+          ...current,
+          projects: current.projects.map((project) => {
+            if (project.id !== projectId) return project;
+            const removedTaskIds = new Set(project.milestones.find((milestone) => milestone.id === milestoneId)?.tasks.map((task) => task.id) ?? []);
+            return {
+              ...project,
+              milestones: project.milestones
+                .filter((milestone) => milestone.id !== milestoneId)
+                .map((milestone) => ({
+                  ...milestone,
+                  tasks: milestone.tasks.map((task) => ({
+                    ...task,
+                    dependencyIds: task.dependencyIds.filter((id) => !removedTaskIds.has(id))
+                  }))
+                }))
+            };
+          })
+        }));
+        setSelectedTask(null);
+        setAddTarget(null);
+        showToast("Milestone deleted", "danger");
+      }
+    });
   }
 
   return (
@@ -293,7 +361,7 @@ export default function App() {
           {!loaded && <div className="mb-4 rounded-app border p-3 text-sm subtle" style={{ background: "var(--background-surface)", borderColor: "var(--border-subtle)" }}>Loading SQLite data...</div>}
           {saveError && <div className="mb-4 rounded-app border p-3 text-sm" style={{ background: "var(--status-red-background)", borderColor: "var(--status-red-bar)", color: "var(--status-red-text)" }}>{saveError}</div>}
           {view.type === "dashboard" && (
-            <Dashboard state={state} queue={queue} openTask={openTask} toggleTask={toggleTask} />
+            <Dashboard state={state} queue={queue} openTask={openTask} setTaskStage={setTaskStage} />
           )}
           {view.type === "general" && (
             <TaskListView
@@ -305,7 +373,7 @@ export default function App() {
               makeRef={(task) => ({ kind: "general", taskId: task.id })}
               onAdd={() => setAddTarget({ kind: "general" })}
               openTask={openTask}
-              toggleTask={toggleTask}
+              setTaskStage={setTaskStage}
               timezone={state.settings.timezone}
             />
           )}
@@ -319,7 +387,7 @@ export default function App() {
               makeRef={(task) => ({ kind: "daily", taskId: task.id })}
               onAdd={() => setAddTarget({ kind: "daily" })}
               openTask={openTask}
-              toggleTask={toggleTask}
+              setTaskStage={setTaskStage}
               timezone={state.settings.timezone}
             />
           )}
@@ -328,7 +396,7 @@ export default function App() {
               project={activeProject}
               timezone={state.settings.timezone}
               openTask={openTask}
-              toggleTask={toggleTask}
+              setTaskStage={setTaskStage}
               setAddTarget={setAddTarget}
               updateProject={(project) => updateState((current) => ({
                 ...current,
@@ -355,7 +423,7 @@ export default function App() {
           setEditing={setEditing}
           close={() => setSelectedTask(null)}
           save={saveTask}
-          toggleTask={toggleTask}
+          setTaskStage={setTaskStage}
           deleteTask={deleteTask}
         />
       )}
@@ -368,6 +436,14 @@ export default function App() {
           save={addTask}
         />
       )}
+
+      {confirmRequest && (
+        <ConfirmModal
+          request={confirmRequest}
+          close={() => setConfirmRequest(null)}
+        />
+      )}
+      <ToastStack toasts={toasts} dismiss={(id) => setToasts((current) => current.filter((toast) => toast.id !== id))} />
     </div>
   );
 }
@@ -431,9 +507,9 @@ function Dashboard(props: {
   state: AppState;
   queue: WorkQueueItem[];
   openTask: (ref: TaskRef) => void;
-  toggleTask: (ref: TaskRef) => void;
+  setTaskStage: (ref: TaskRef, stage: TaskStage) => void;
 }) {
-  const { state, queue, openTask, toggleTask } = props;
+  const { state, queue, openTask, setTaskStage } = props;
   const completedToday = state.dailyTasks.filter((task) => task.completed).length;
   const activeProjects = state.projects.length;
   const blockedCount = buildWorkQueue(state, true).filter((item) => item.blockedBy.length).length;
@@ -453,7 +529,7 @@ function Dashboard(props: {
       <div className="mt-3 grid gap-2">
         {queue.length === 0 && <EmptyState text="No active unblocked work." />}
         {queue.map((item) => (
-          <QueueRow key={item.id} item={item} timezone={state.settings.timezone} openTask={openTask} toggleTask={toggleTask} />
+          <QueueRow key={item.id} item={item} timezone={state.settings.timezone} openTask={openTask} setTaskStage={setTaskStage} />
         ))}
       </div>
     </section>
@@ -469,7 +545,7 @@ function TaskListView<T extends TaskBase>(props: {
   makeRef: (task: T) => TaskRef;
   onAdd: () => void;
   openTask: (ref: TaskRef) => void;
-  toggleTask: (ref: TaskRef) => void;
+  setTaskStage: (ref: TaskRef, stage: TaskStage) => void;
   timezone: string;
 }) {
   return (
@@ -497,7 +573,7 @@ function TaskListView<T extends TaskBase>(props: {
               blockedBy={[]}
               blocking={[]}
               open={() => props.openTask(ref)}
-              toggle={() => props.toggleTask(ref)}
+              setStage={(stage) => props.setTaskStage(ref, stage)}
             />
           );
         })}
@@ -510,7 +586,7 @@ function ProjectView(props: {
   project: Project;
   timezone: string;
   openTask: (ref: TaskRef) => void;
-  toggleTask: (ref: TaskRef) => void;
+  setTaskStage: (ref: TaskRef, stage: TaskStage) => void;
   setAddTarget: (target: AddTaskTarget) => void;
   updateProject: (project: Project) => void;
   deleteProject: () => void;
@@ -581,12 +657,16 @@ function ProjectView(props: {
                   ) : (
                     <h2 className="min-w-0 flex-1 truncate text-base font-bold">{milestone.name}</h2>
                   )}
-                  {editingMilestoneId === milestone.id ? (
-                    <IconButton variant="secondary" icon="check" label="Done editing milestone" onClick={() => setEditingMilestoneId(null)} />
-                  ) : (
-                    <IconButton variant="secondary" icon="edit" label="Edit milestone" onClick={() => setEditingMilestoneId(milestone.id)} />
-                  )}
-                  <IconButton variant="danger" icon="delete" label="Delete milestone" onClick={() => props.deleteMilestone(milestone.id)} />
+                  <div className={"milestone-actions " + (editingMilestoneId === milestone.id ? "milestone-actions-editing" : "")}>
+                    {editingMilestoneId === milestone.id ? (
+                      <>
+                        <IconButton variant="secondary" icon="check" label="Done editing milestone" onClick={() => setEditingMilestoneId(null)} />
+                        <IconButton variant="danger" icon="delete" label="Delete milestone" onClick={() => props.deleteMilestone(milestone.id)} />
+                      </>
+                    ) : (
+                      <IconButton variant="secondary" icon="edit" label="Edit milestone" onClick={() => setEditingMilestoneId(milestone.id)} />
+                    )}
+                  </div>
                 </div>
                 <Dropdown
                   value={milestone.urgency}
@@ -610,7 +690,7 @@ function ProjectView(props: {
                     blockedBy={blockedByNames(task, project)}
                     blocking={blockingNames(task, project)}
                     open={() => props.openTask(ref)}
-                    toggle={() => props.toggleTask(ref)}
+                    setStage={(stage) => props.setTaskStage(ref, stage)}
                   />
                 );
               })}
@@ -658,7 +738,7 @@ function TaskPopover(props: {
   setEditing: (editing: boolean) => void;
   close: () => void;
   save: (ref: TaskRef, draft: EditorDraft) => void;
-  toggleTask: (ref: TaskRef) => void;
+  setTaskStage: (ref: TaskRef, stage: TaskStage) => void;
   deleteTask: (ref: TaskRef) => void;
 }) {
   const { details, state } = props;
@@ -669,11 +749,11 @@ function TaskPopover(props: {
   }, [details.task.id]);
 
   let project: Project | undefined;
-  let projectTasks: { id: string; label: string }[] = [];
+  let dependencyGroups: DependencyGroup[] = [];
   if (details.ref.kind === "project") {
     const projectRef = details.ref;
     project = state.projects.find((candidate) => candidate.id === projectRef.projectId);
-    projectTasks = project ? allProjectTaskOptions(project, projectRef.taskId) : [];
+    dependencyGroups = project ? projectDependencyGroups(project, projectRef.taskId) : [];
   }
 
   return (
@@ -688,15 +768,13 @@ function TaskPopover(props: {
         </div>
 
         {props.editing ? (
-          <TaskEditor draft={draft} setDraft={setDraft} projectTasks={projectTasks} />
+          <TaskEditor draft={draft} setDraft={setDraft} dependencyGroups={dependencyGroups} />
         ) : (
           <TaskDetails details={details} timezone={state.settings.timezone} />
         )}
 
-        <div className="mt-5 flex flex-wrap justify-between gap-2">
-          <button className="btn btn-secondary" disabled={details.blockedBy.length > 0} onClick={() => props.toggleTask(details.ref)}>
-            {details.task.completed ? "Mark incomplete" : "Complete"}
-          </button>
+        <div className="mt-5 flex flex-wrap justify-between gap-3">
+          <TaskStageControls task={details.task} disabled={details.blockedBy.length > 0} setStage={(stage) => props.setTaskStage(details.ref, stage)} />
           <div className="flex gap-2">
             <IconButton variant="danger" icon="delete" label="Delete task" onClick={() => props.deleteTask(details.ref)} />
             {props.editing ? (
@@ -722,11 +800,11 @@ function AddTaskPopover(props: {
 }) {
   const [draft, setDraft] = useState<EditorDraft>(emptyDraft);
   let project: Project | undefined;
-  let projectTasks: { id: string; label: string }[] = [];
+  let dependencyGroups: DependencyGroup[] = [];
   if (props.target.kind === "project") {
     const projectTarget = props.target;
     project = props.state.projects.find((candidate) => candidate.id === projectTarget.projectId);
-    projectTasks = project ? allProjectTaskOptions(project) : [];
+    dependencyGroups = project ? projectDependencyGroups(project) : [];
   }
 
   return (
@@ -736,7 +814,7 @@ function AddTaskPopover(props: {
           <h2 className="text-xl font-bold">Add task</h2>
           <IconButton variant="secondary" icon="close" label="Close" onClick={props.close} />
         </div>
-        <TaskEditor draft={draft} setDraft={setDraft} projectTasks={projectTasks} />
+        <TaskEditor draft={draft} setDraft={setDraft} dependencyGroups={dependencyGroups} />
         <div className="mt-5 flex justify-end gap-2">
           <button className="btn btn-primary" onClick={() => props.save(props.target, draft)}>Save</button>
         </div>
@@ -748,7 +826,7 @@ function AddTaskPopover(props: {
 function TaskEditor(props: {
   draft: EditorDraft;
   setDraft: (draft: EditorDraft) => void;
-  projectTasks: { id: string; label: string }[];
+  dependencyGroups: DependencyGroup[];
 }) {
   const { draft, setDraft } = props;
   return (
@@ -776,11 +854,11 @@ function TaskEditor(props: {
         <span className="label">Notes</span>
         <textarea className="input min-h-24" value={draft.notes} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} />
       </label>
-      {props.projectTasks.length > 0 && (
+      {props.dependencyGroups.length > 0 && (
         <div className="field">
           <span className="label">Dependencies</span>
           <DependencyPicker
-            options={props.projectTasks}
+            groups={props.dependencyGroups}
             value={draft.dependencyIds}
             onChange={(dependencyIds) => setDraft({ ...draft, dependencyIds })}
           />
@@ -793,7 +871,7 @@ function TaskEditor(props: {
 function TaskDetails({ details, timezone }: { details: ResolvedTask; timezone: string }) {
   return (
     <div className="grid gap-3 text-sm">
-      <Detail label="Status" value={details.task.completed ? "Completed" : details.blockedBy.length ? "Blocked" : "Open"} />
+      <Detail label="Status" value={details.blockedBy.length ? "Blocked" : taskStageLabel(taskStage(details.task))} />
       <Detail label="Urgency" value={capitalize(details.task.urgency)} />
       <Detail label="Due date" value={details.task.dueDate ? dueLabel(details.task.dueDate, timezone) : "None"} />
       {details.task.notes && <Detail label="Notes" value={details.task.notes} />}
@@ -812,33 +890,34 @@ function TaskRow(props: {
   blockedBy: string[];
   blocking: string[];
   open: () => void;
-  toggle: () => void;
+  setStage: (stage: TaskStage) => void;
 }) {
   const blocked = props.blockedBy.length > 0;
   return (
     <div className="tile grid grid-cols-[5px_1fr_auto] overflow-hidden">
       <div style={{ background: props.color }} />
       <button className="min-w-0 p-3 text-left" onClick={props.open}>
-        <div className={`font-semibold ${props.task.completed ? "line-through muted" : ""}`}>{props.task.name}</div>
+        <div className={"font-semibold " + (taskStage(props.task) === "complete" ? "line-through muted" : "")}>{props.task.name}</div>
         <div className="mt-1 flex flex-wrap gap-2 text-xs">
           <Pill tone={urgencyTone(props.task.urgency)}>{capitalize(props.task.urgency)}</Pill>
+          <StagePill stage={taskStage(props.task)} />
           {props.task.dueDate && <Pill tone={dateTone(props.task.dueDate, props.timezone)}>{dueLabel(props.task.dueDate, props.timezone)}</Pill>}
           {blocked && <Pill tone="red">Blocked by {props.blockedBy.length}</Pill>}
           {props.blocking.length > 0 && <Pill tone="yellow">Blocking {props.blocking.length}</Pill>}
         </div>
       </button>
       <div className="flex items-center p-3">
-        <button className="btn btn-secondary" disabled={blocked} onClick={props.toggle}>{props.task.completed ? "Undo" : "Done"}</button>
+        <TaskStageControls task={props.task} disabled={blocked} setStage={props.setStage} compact />
       </div>
     </div>
   );
 }
 
-function QueueRow({ item, timezone, openTask, toggleTask }: {
+function QueueRow({ item, timezone, openTask, setTaskStage }: {
   item: WorkQueueItem;
   timezone: string;
   openTask: (ref: TaskRef) => void;
-  toggleTask: (ref: TaskRef) => void;
+  setTaskStage: (ref: TaskRef, stage: TaskStage) => void;
 }) {
   return (
     <div className="tile grid grid-cols-[5px_1fr_auto] overflow-hidden">
@@ -848,11 +927,12 @@ function QueueRow({ item, timezone, openTask, toggleTask }: {
         <div className="subtle text-sm">{item.source}</div>
         <div className="mt-2 flex flex-wrap gap-2 text-xs">
           <Pill tone={urgencyTone(item.urgency)}>{capitalize(item.urgency)}</Pill>
+          <StagePill stage={item.stage ?? "notStarted"} />
           {item.dueDate && <Pill tone={dateTone(item.dueDate, timezone)}>{dueLabel(item.dueDate, timezone)}</Pill>}
         </div>
       </button>
       <div className="flex items-center p-3">
-        <button className="btn btn-secondary" onClick={() => toggleTask(item.ref)}>Done</button>
+        <TaskStageControls stage={item.stage ?? "notStarted"} setStage={(stage) => setTaskStage(item.ref, stage)} compact />
       </div>
     </div>
   );
@@ -890,20 +970,48 @@ function Dropdown<T extends string>({ value, options, onChange, ariaLabel }: { v
   );
 }
 
-function DependencyPicker({ options, value, onChange }: { options: { id: string; label: string }[]; value: string[]; onChange: (value: string[]) => void }) {
-  function toggle(id: string) {
+function DependencyPicker({ groups, value, onChange }: { groups: DependencyGroup[]; value: string[]; onChange: (value: string[]) => void }) {
+  const initiallyExpanded = groups.filter((group, index) => index === 0 || group.tasks.some((task) => value.includes(task.id))).map((group) => group.id);
+  const [expandedIds, setExpandedIds] = useState<string[]>(initiallyExpanded);
+
+  function toggleTask(id: string) {
     onChange(value.includes(id) ? value.filter((candidate) => candidate !== id) : [...value, id]);
+  }
+
+  function toggleGroup(id: string) {
+    setExpandedIds((current) => current.includes(id) ? current.filter((candidate) => candidate !== id) : [...current, id]);
   }
 
   return (
     <div className="dependency-picker">
-      {options.map((option) => {
-        const selected = value.includes(option.id);
+      {groups.map((group) => {
+        const expanded = expandedIds.includes(group.id);
+        const selectedCount = group.tasks.filter((task) => value.includes(task.id)).length;
         return (
-          <button key={option.id} className={`dependency-option ${selected ? "dependency-option-active" : ""}`} type="button" onClick={() => toggle(option.id)}>
-            <span className="truncate">{option.label}</span>
-            {selected && <MaterialIcon name="check" />}
-          </button>
+          <div key={group.id}>
+            <button className="dependency-group" type="button" onClick={() => toggleGroup(group.id)} aria-expanded={expanded}>
+              <span className="flex min-w-0 items-center gap-2">
+                <MaterialIcon name={expanded ? "expand_less" : "expand_more"} />
+                <span className="truncate">{group.name}</span>
+              </span>
+              {selectedCount > 0 && <span className="dependency-count">{selectedCount}</span>}
+            </button>
+            {expanded && (
+              <div className="dependency-task-list">
+                {group.tasks.length === 0 ? (
+                  <div className="px-3 py-2 text-sm muted">No eligible tasks</div>
+                ) : group.tasks.map((task) => {
+                  const selected = value.includes(task.id);
+                  return (
+                    <button key={task.id} className={"dependency-option " + (selected ? "dependency-option-active" : "")} type="button" onClick={() => toggleTask(task.id)}>
+                      <span className="truncate">{task.label}</span>
+                      {selected && <MaterialIcon name="check" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         );
       })}
     </div>
@@ -966,6 +1074,75 @@ function IconButton({ variant, icon, label, onClick, disabled = false }: { varia
     >
       <MaterialIcon name={icon} />
     </button>
+  );
+}
+
+
+function TaskStageControls({ task, stage, disabled = false, setStage, compact = false }: { task?: TaskBase; stage?: TaskStage; disabled?: boolean; setStage: (stage: TaskStage) => void; compact?: boolean }) {
+  const currentStage = stage ?? (task ? taskStage(task) : "notStarted");
+  return (
+    <div className={compact ? "stage-controls stage-controls-compact" : "stage-controls"} aria-label="Task stage">
+      {taskStageOptions.map((option) => {
+        const active = currentStage === option.value;
+        return (
+          <button
+            key={option.value}
+            className={"stage-button stage-" + option.tone + (active ? " stage-button-active" : "")}
+            type="button"
+            disabled={disabled}
+            aria-pressed={active}
+            onClick={() => setStage(option.value)}
+          >
+            <span className="stage-check" aria-hidden="true">{active && <MaterialIcon name="check" />}</span>
+            <span>{compact ? compactStageLabel(option.value) : option.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function StagePill({ stage }: { stage: TaskStage }) {
+  if (stage === "notStarted") return <Pill tone="neutral">Not started</Pill>;
+  const option = taskStageOptions.find((candidate) => candidate.value === stage);
+  return <span className={"stage-pill stage-" + (option?.tone ?? "blue")}>{taskStageLabel(stage)}</span>;
+}
+
+function ConfirmModal({ request, close }: { request: ConfirmRequest; close: () => void }) {
+  function confirm() {
+    request.onConfirm();
+    close();
+  }
+
+  return (
+    <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/50 p-4" onMouseDown={close}>
+      <section className="confirm-modal" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="label">Confirm action</div>
+            <h2 className="text-xl font-bold">{request.title}</h2>
+          </div>
+          <IconButton variant="secondary" icon="close" label="Close" onClick={close} />
+        </div>
+        <p className="subtle mt-3 text-sm">{request.message}</p>
+        <div className="mt-5 flex justify-end gap-2">
+          <button className="btn btn-secondary" type="button" onClick={close}>Cancel</button>
+          <button className={"btn btn-" + request.tone} type="button" onClick={confirm}>{request.confirmLabel}</button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function ToastStack({ toasts, dismiss }: { toasts: Toast[]; dismiss: (id: string) => void }) {
+  return (
+    <div className="toast-stack" aria-live="polite" aria-atomic="true">
+      {toasts.map((toast) => (
+        <button key={toast.id} className={"toast toast-" + toast.tone} type="button" onClick={() => dismiss(toast.id)}>
+          {toast.message}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -1132,13 +1309,45 @@ function hasDependencies(task: TaskBase): task is ProjectTask {
   return "dependencyIds" in task && Array.isArray((task as ProjectTask).dependencyIds);
 }
 
-function allProjectTaskOptions(project: Project, excludeId?: string): { id: string; label: string }[] {
-  const { milestoneByTaskId } = getProjectTaskMaps(project);
-  return project.milestones.flatMap((milestone) =>
-    milestone.tasks
+function taskStage(task: TaskBase): TaskStage {
+  return task.stage ?? (task.completed ? "complete" : "notStarted");
+}
+
+function withTaskStage<T extends TaskBase>(task: T, stage: TaskStage, timezone?: string): T {
+  return {
+    ...task,
+    stage,
+    completed: stage === "complete",
+    ...("completedOn" in task ? { completedOn: stage === "complete" && timezone ? zonedToday(timezone) : undefined } : {})
+  };
+}
+
+function taskStageLabel(stage: TaskStage): string {
+  if (stage === "notStarted") return "Not started";
+  if (stage === "inProgress") return "In progress";
+  if (stage === "waitingReview") return "Waiting for review";
+  return "Complete";
+}
+
+function compactStageLabel(stage: TaskStage): string {
+  if (stage === "inProgress") return "Progress";
+  if (stage === "waitingReview") return "Review";
+  return "Done";
+}
+
+function projectDependencyGroups(project: Project, excludeId?: string): DependencyGroup[] {
+  return project.milestones.map((milestone) => ({
+    id: milestone.id,
+    name: milestone.name,
+    tasks: milestone.tasks
       .filter((task) => task.id !== excludeId)
-      .map((task) => ({ id: task.id, label: `${milestoneByTaskId.get(task.id) === milestone.id ? milestone.name : "Milestone"} / ${task.name}` }))
-  );
+      .map((task) => ({ id: task.id, label: task.name }))
+  }));
+}
+
+
+function capitalize(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 function urgencyTone(urgency: Urgency): "red" | "yellow" | "green" {
@@ -1147,18 +1356,14 @@ function urgencyTone(urgency: Urgency): "red" | "yellow" | "green" {
   return "green";
 }
 
-function dateTone(dueDate: string, timezone: string): "red" | "yellow" | "neutral" {
+function dateTone(dueDate: string, timezone: string): "red" | "yellow" | "green" {
   if (isOverdue(dueDate, timezone)) return "red";
   if (dueSoon(dueDate, timezone)) return "yellow";
-  return "neutral";
+  return "green";
 }
 
 function dueLabel(dueDate: string, timezone: string): string {
-  if (isOverdue(dueDate, timezone)) return `Overdue ${dueDate}`;
-  if (dueSoon(dueDate, timezone)) return `Due soon ${dueDate}`;
-  return `Due ${dueDate}`;
-}
-
-function capitalize(value: string): string {
-  return `${value.slice(0, 1).toUpperCase()}${value.slice(1)}`;
+  if (isOverdue(dueDate, timezone)) return "Overdue " + dueDate;
+  if (dueSoon(dueDate, timezone)) return "Due soon " + dueDate;
+  return "Due " + dueDate;
 }

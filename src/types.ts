@@ -1,4 +1,5 @@
 export type Urgency = "low" | "medium" | "high";
+export type TaskStage = "notStarted" | "inProgress" | "waitingReview" | "complete";
 export type ThemeMode = "light" | "dark";
 export type View =
   | { type: "dashboard" }
@@ -11,6 +12,7 @@ export type TaskBase = {
   id: string;
   name: string;
   completed: boolean;
+  stage?: TaskStage;
   urgency: Urgency;
   dueDate?: string;
   notes?: string;
@@ -71,6 +73,7 @@ export type WorkQueueItem = {
   urgency: Urgency;
   dueDate?: string;
   notes?: string;
+  stage?: TaskStage;
   blockedBy: string[];
   blocking: string[];
   ref: TaskRef;

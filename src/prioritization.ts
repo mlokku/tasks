@@ -1,4 +1,8 @@
-import type { AppState, Project, ProjectTask, Urgency, WorkQueueItem } from "./types";
+import type { AppState, Project, ProjectTask, TaskStage, Urgency, WorkQueueItem } from "./types";
+
+function taskStage(task: { completed: boolean; stage?: TaskStage }): TaskStage {
+  return task.stage ?? (task.completed ? "complete" : "notStarted");
+}
 
 const urgencyRank: Record<Urgency, number> = {
   high: 3,
@@ -26,7 +30,7 @@ export function blockedByNames(task: ProjectTask, project: Project): string[] {
   const { taskById } = getProjectTaskMaps(project);
   return task.dependencyIds
     .map((id) => taskById.get(id))
-    .filter((dependency): dependency is ProjectTask => Boolean(dependency && !dependency.completed))
+    .filter((dependency): dependency is ProjectTask => Boolean(dependency && taskStage(dependency) !== "complete"))
     .map((dependency) => dependency.name);
 }
 
@@ -34,7 +38,7 @@ export function blockingNames(task: ProjectTask, project: Project): string[] {
   const names: string[] = [];
   for (const milestone of project.milestones) {
     for (const candidate of milestone.tasks) {
-      if (candidate.dependencyIds.includes(task.id) && !candidate.completed) {
+      if (candidate.dependencyIds.includes(task.id) && taskStage(candidate) !== "complete") {
         names.push(candidate.name);
       }
     }
@@ -47,7 +51,7 @@ export function buildWorkQueue(state: AppState, includeBlocked = false): WorkQue
   const queue: WorkQueueItem[] = [];
 
   for (const task of state.generalTasks) {
-    if (task.completed) continue;
+    if (taskStage(task) === "complete") continue;
     queue.push({
       id: `general-${task.id}`,
       label: task.name,
@@ -56,6 +60,7 @@ export function buildWorkQueue(state: AppState, includeBlocked = false): WorkQue
       urgency: task.urgency,
       dueDate: task.dueDate,
       notes: task.notes,
+      stage: taskStage(task),
       blockedBy: [],
       blocking: [],
       ref: { kind: "general", taskId: task.id },
@@ -64,7 +69,7 @@ export function buildWorkQueue(state: AppState, includeBlocked = false): WorkQue
   }
 
   for (const task of state.dailyTasks) {
-    if (task.completed) continue;
+    if (taskStage(task) === "complete") continue;
     queue.push({
       id: `daily-${task.id}`,
       label: task.name,
@@ -73,6 +78,7 @@ export function buildWorkQueue(state: AppState, includeBlocked = false): WorkQue
       urgency: task.urgency,
       dueDate: task.dueDate,
       notes: task.notes,
+      stage: taskStage(task),
       blockedBy: [],
       blocking: [],
       ref: { kind: "daily", taskId: task.id },
@@ -83,7 +89,7 @@ export function buildWorkQueue(state: AppState, includeBlocked = false): WorkQue
   for (const project of state.projects) {
     for (const milestone of project.milestones) {
       for (const task of milestone.tasks) {
-        if (task.completed) continue;
+        if (taskStage(task) === "complete") continue;
         const blockers = blockedByNames(task, project);
         if (blockers.length && !includeBlocked) continue;
         queue.push({
@@ -94,6 +100,7 @@ export function buildWorkQueue(state: AppState, includeBlocked = false): WorkQue
           urgency: task.urgency,
           dueDate: task.dueDate,
           notes: task.notes,
+          stage: taskStage(task),
           blockedBy: blockers,
           blocking: blockingNames(task, project),
           ref: { kind: "project", projectId: project.id, milestoneId: milestone.id, taskId: task.id },

@@ -138,9 +138,29 @@ button:disabled {
 }
 
 .dependency-picker {
-  @apply grid max-h-40 gap-1 overflow-auto rounded-app border p-1;
+  @apply grid max-h-56 gap-1 overflow-auto rounded-app border p-1;
   background: var(--input-background);
   border-color: var(--input-border);
+}
+
+.dependency-group {
+  @apply flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm font-semibold transition;
+  color: var(--foreground-primary);
+}
+
+.dependency-group:hover {
+  background: var(--background-surface-hover);
+}
+
+.dependency-count {
+  @apply rounded-full px-2 py-0.5 text-xs font-bold;
+  color: var(--foreground-primary);
+  background: var(--accent-brand-soft);
+}
+
+.dependency-task-list {
+  @apply ml-5 grid gap-1 border-l pl-2;
+  border-color: var(--border-subtle);
 }
 
 .dependency-option {
@@ -164,6 +184,107 @@ button:disabled {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+.stage-controls {
+  @apply flex flex-wrap items-center gap-2;
+}
+
+.stage-controls-compact {
+  @apply justify-end;
+}
+
+.stage-button {
+  @apply inline-flex items-center gap-1.5 rounded-app border px-2.5 py-1.5 text-xs font-semibold transition;
+  color: var(--foreground-secondary);
+  background: var(--button-secondary-background);
+  border-color: var(--border-subtle);
+}
+
+.stage-button:hover,
+.stage-button-active {
+  color: var(--foreground-primary);
+}
+
+.stage-blue.stage-button-active,
+.stage-blue:hover {
+  background: rgba(56, 189, 248, 0.18);
+  border-color: #38BDF8;
+}
+
+.stage-yellow.stage-button-active,
+.stage-yellow:hover {
+  background: rgba(245, 158, 11, 0.18);
+  border-color: #F59E0B;
+}
+
+.stage-green.stage-button-active,
+.stage-green:hover {
+  background: rgba(34, 197, 94, 0.18);
+  border-color: #22C55E;
+}
+
+.stage-check {
+  @apply inline-flex h-3.5 w-3.5 items-center justify-center rounded-sm text-[10px];
+  background: var(--background-surface-elevated);
+}
+
+.stage-pill {
+  @apply rounded-full px-2 py-1 font-semibold;
+}
+
+.stage-pill.stage-blue {
+  color: #0EA5E9;
+  background: rgba(56, 189, 248, 0.16);
+}
+
+.stage-pill.stage-yellow {
+  color: #D97706;
+  background: rgba(245, 158, 11, 0.16);
+}
+
+.stage-pill.stage-green {
+  color: #16A34A;
+  background: rgba(34, 197, 94, 0.16);
+}
+
+.milestone-actions {
+  @apply flex shrink-0 items-center gap-2 overflow-hidden transition-all duration-200 ease-out;
+  max-width: 36px;
+}
+
+.milestone-actions-editing {
+  max-width: 84px;
+}
+
+.confirm-modal {
+  @apply w-full max-w-md rounded-app border p-4 shadow-2xl;
+  color: var(--foreground-primary);
+  background: var(--background-surface-elevated);
+  border-color: var(--border-default);
+}
+
+.toast-stack {
+  @apply fixed bottom-4 right-4 z-40 grid w-[min(360px,calc(100vw-2rem))] gap-2;
+}
+
+.toast {
+  @apply rounded-app border px-4 py-3 text-left text-sm font-semibold shadow-xl;
+  color: var(--foreground-primary);
+  background: var(--background-surface-elevated);
+  border-color: var(--border-default);
+  animation: dropdown-in 140ms ease-out;
+}
+
+.toast-success {
+  border-color: var(--status-green-bar);
+  background: var(--status-green-background);
+  color: var(--status-green-text);
+}
+
+.toast-danger {
+  border-color: #7F1D1D;
+  background: rgba(127, 29, 29, 0.22);
 }
 
 .material-symbols-rounded {
@@ -215,12 +336,13 @@ button:disabled {
 
 .btn-danger {
   color: var(--button-danger-text);
-  background: var(--button-danger-background);
+  background: #7F1D1D;
 }
 
 .btn-danger:hover {
-  background: var(--button-danger-background-hover);
+  background: #991B1B;
 }
+
 
 .tile {
   @apply rounded-app border;
