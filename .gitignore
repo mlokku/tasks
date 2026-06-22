@@ -14,3 +14,5 @@ pnpm-debug.log*
 data/*.sqlite
 data/*.sqlite-*
 .claude/
+.dockerignore
+Dockerfile
