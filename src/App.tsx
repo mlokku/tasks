@@ -1571,13 +1571,73 @@ function ImportProjectSection({ state, setState, showToast }: {
   }
 
   const placeholder = `{
-  "project name": "My Project",
+  "project name": "Website Redesign",
+  "priority": 8,
+  "color": "#6366f1",
+  "notes": "Optional project-level notes.",
   "milestones": [
     {
-      "milestone name": "Sprint 1",
+      "milestone name": "Discovery",
+      "urgency": "high",
+      "notes": "Optional milestone-level notes.",
       "tasks": [
-        { "task name": "Setup", "task uuid": "t1", "task urgency": "high" },
-        { "task name": "Build", "task uuid": "t2", "dependencies": ["t1"] }
+        {
+          "task name": "Stakeholder kickoff",
+          "task uuid": "t-001",
+          "task urgency": "high",
+          "task stage": "complete",
+          "task due date": "2026-07-01",
+          "task notes": "Optional task-level notes.",
+          "dependencies": []
+        },
+        {
+          "task name": "Requirements doc",
+          "task uuid": "t-002",
+          "task urgency": "medium",
+          "task stage": "inProgress",
+          "task due date": "2026-07-15",
+          "dependencies": ["t-001"]
+        },
+        {
+          "task name": "Technical scoping",
+          "task uuid": "t-003",
+          "task urgency": "low",
+          "task stage": "waitingReview",
+          "dependencies": ["t-001", "t-002"]
+        }
+      ]
+    },
+    {
+      "milestone name": "Build",
+      "urgency": "medium",
+      "tasks": [
+        {
+          "task name": "Implement core features",
+          "task uuid": "t-004",
+          "task urgency": "high",
+          "task stage": "notStarted",
+          "dependencies": ["t-003"]
+        },
+        {
+          "task name": "QA pass",
+          "task uuid": "t-005",
+          "task urgency": "medium",
+          "task stage": "notStarted",
+          "dependencies": ["t-004"]
+        }
+      ]
+    },
+    {
+      "milestone name": "Launch",
+      "urgency": "low",
+      "tasks": [
+        {
+          "task name": "Deploy to production",
+          "task uuid": "t-006",
+          "task urgency": "high",
+          "task stage": "notStarted",
+          "dependencies": ["t-005"]
+        }
       ]
     }
   ]
@@ -1587,7 +1647,13 @@ function ImportProjectSection({ state, setState, showToast }: {
     <div className="mt-6 rounded-app border p-4" style={{ background: "var(--background-surface)", borderColor: "var(--border-subtle)" }}>
       <div className="mb-3">
         <div className="label mb-1">Import project</div>
-        <p className="subtle text-sm">Paste a JSON project definition. Task UUIDs are used to resolve dependencies and then discarded.</p>
+        <p className="subtle text-sm">
+          Paste a JSON project definition. The placeholder shows every supported field.
+          Required: <code>project name</code>, <code>milestones</code> array; each milestone needs <code>milestone name</code> and <code>tasks</code> array; each task needs <code>task name</code>.
+          Alternate key names are accepted — <code>name</code> works in place of <code>project/milestone/task name</code>; <code>uuid</code> or <code>id</code> for <code>task uuid</code>; bare <code>urgency</code>, <code>stage</code>, <code>notes</code>, <code>dueDate</code> for the <code>task&nbsp;*</code> prefixed variants; <code>dependencyIds</code> for <code>dependencies</code>.
+          Valid urgency values: <code>low</code>, <code>medium</code>, <code>high</code>. Valid stage values: <code>notStarted</code>, <code>inProgress</code>, <code>waitingReview</code>, <code>complete</code>.
+          Task UUIDs resolve dependencies and are then discarded.
+        </p>
       </div>
       <textarea
         className="input min-h-40 font-mono text-xs"
