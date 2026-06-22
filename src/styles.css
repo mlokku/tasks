@@ -1,0 +1,127 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: "Noto Sans", sans-serif;
+  color: var(--foreground-primary);
+  background: var(--background-app);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  color: var(--foreground-primary);
+  background: var(--background-app);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.app-shell {
+  min-height: 100vh;
+  color: var(--foreground-primary);
+  color-scheme: var(--color-scheme);
+  background:
+    linear-gradient(180deg, var(--background-app), var(--background-surface) 52%, var(--background-app)),
+    var(--background-app);
+}
+
+.field {
+  @apply flex flex-col gap-1.5;
+}
+
+.label {
+  @apply text-xs font-semibold uppercase tracking-wide;
+  color: var(--foreground-tertiary);
+}
+
+.input {
+  @apply w-full rounded-app border px-3 py-2 outline-none transition;
+  color: var(--input-text);
+  background: var(--input-background);
+  border-color: var(--input-border);
+}
+
+.input::placeholder {
+  color: var(--input-placeholder);
+}
+
+.input option {
+  color: var(--input-text);
+  background: var(--input-background);
+}
+
+.input:focus {
+  border-color: var(--input-border-focus);
+  box-shadow: 0 0 0 3px var(--accent-brand-soft);
+}
+
+.btn {
+  @apply inline-flex items-center justify-center rounded-app px-3 py-2 text-sm font-semibold transition;
+}
+
+.btn-primary {
+  color: var(--button-primary-text);
+  background: var(--button-primary-background);
+}
+
+.btn-primary:hover {
+  background: var(--button-primary-background-hover);
+}
+
+.btn-secondary {
+  color: var(--button-secondary-text);
+  background: var(--button-secondary-background);
+}
+
+.btn-secondary:hover {
+  background: var(--button-secondary-background-hover);
+}
+
+.btn-danger {
+  color: var(--button-danger-text);
+  background: var(--button-danger-background);
+}
+
+.btn-danger:hover {
+  background: var(--button-danger-background-hover);
+}
+
+.tile {
+  @apply rounded-app border;
+  color: var(--foreground-primary);
+  background: var(--tile-default);
+  border-color: var(--border-subtle);
+}
+
+.tile:hover {
+  background: var(--background-surface-hover);
+}
+
+.muted {
+  color: var(--foreground-tertiary);
+}
+
+.subtle {
+  color: var(--foreground-secondary);
+}
