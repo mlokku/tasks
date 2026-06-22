@@ -467,8 +467,7 @@ function Sidebar(props: {
   return (
     <aside className="sticky top-0 hidden h-screen w-72 shrink-0 flex-col border-r p-4 md:flex" style={{ borderColor: "var(--border-subtle)", background: "var(--background-surface)" }}>
       <div className="mb-6 shrink-0">
-        <div className="text-lg font-bold">Task Tracker</div>
-        <div className="muted text-sm">Local v1 workspace</div>
+        <div className="text-lg font-bold">Task<span className="font-normal" style={{ color: "var(--foreground-secondary)" }}>Tracker</span></div>
       </div>
       <nav className="flex shrink-0 flex-col gap-1">
         <button className={navClass(view.type === "dashboard")} onClick={() => navigate({ type: "dashboard" })}>Dashboard</button>
