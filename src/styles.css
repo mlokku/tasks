@@ -99,6 +99,73 @@ button:disabled {
   box-shadow: 0 0 0 3px var(--accent-brand-soft);
 }
 
+.dropdown {
+  @apply relative w-full;
+}
+
+.dropdown-trigger {
+  @apply flex w-full items-center justify-between gap-2 rounded-app border px-3 py-2 text-left outline-none transition;
+  color: var(--input-text);
+  background: var(--input-background);
+  border-color: var(--input-border);
+}
+
+.dropdown-trigger:hover {
+  background: var(--background-surface-hover);
+}
+
+.dropdown-trigger:focus-visible {
+  border-color: var(--input-border-focus);
+  box-shadow: 0 0 0 3px var(--accent-brand-soft);
+}
+
+.dropdown-menu {
+  @apply absolute left-0 right-0 z-20 mt-2 grid max-h-64 gap-1 overflow-auto rounded-app border p-1 shadow-xl;
+  background: var(--background-surface-elevated);
+  border-color: var(--border-default);
+  animation: dropdown-in 120ms ease-out;
+}
+
+.dropdown-option {
+  @apply flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm transition;
+  color: var(--foreground-secondary);
+}
+
+.dropdown-option:hover,
+.dropdown-option-active {
+  color: var(--foreground-primary);
+  background: var(--background-surface-hover);
+}
+
+.dependency-picker {
+  @apply grid max-h-40 gap-1 overflow-auto rounded-app border p-1;
+  background: var(--input-background);
+  border-color: var(--input-border);
+}
+
+.dependency-option {
+  @apply flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm transition;
+  color: var(--foreground-secondary);
+}
+
+.dependency-option:hover,
+.dependency-option-active {
+  color: var(--foreground-primary);
+  background: var(--background-surface-hover);
+}
+
+@keyframes dropdown-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .material-symbols-rounded {
   font-family: "Material Symbols Rounded";
   font-weight: normal;

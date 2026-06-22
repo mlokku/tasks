@@ -123,6 +123,13 @@ export default function App() {
     setEditing(false);
   }
 
+  function deleteTask(ref: TaskRef) {
+    if (!window.confirm("Delete this task?")) return;
+    updateState((current) => removeTask(current, ref));
+    setSelectedTask(null);
+    setEditing(false);
+  }
+
   function addTask(target: AddTaskTarget, draft: EditorDraft) {
     const name = draft.name.trim();
     if (!name) return;
@@ -234,6 +241,42 @@ export default function App() {
     setNewMilestoneName("");
   }
 
+  function deleteProject(projectId: string) {
+    if (!window.confirm("Delete this project and all of its milestones and tasks?")) return;
+    updateState((current) => ({
+      ...current,
+      projects: current.projects.filter((project) => project.id !== projectId)
+    }));
+    setView({ type: "dashboard" });
+    setSelectedTask(null);
+    setAddTarget(null);
+  }
+
+  function deleteMilestone(projectId: string, milestoneId: string) {
+    if (!window.confirm("Delete this milestone and all of its tasks?")) return;
+    updateState((current) => ({
+      ...current,
+      projects: current.projects.map((project) => {
+        if (project.id !== projectId) return project;
+        const removedTaskIds = new Set(project.milestones.find((milestone) => milestone.id === milestoneId)?.tasks.map((task) => task.id) ?? []);
+        return {
+          ...project,
+          milestones: project.milestones
+            .filter((milestone) => milestone.id !== milestoneId)
+            .map((milestone) => ({
+              ...milestone,
+              tasks: milestone.tasks.map((task) => ({
+                ...task,
+                dependencyIds: task.dependencyIds.filter((id) => !removedTaskIds.has(id))
+              }))
+            }))
+        };
+      })
+    }));
+    setSelectedTask(null);
+    setAddTarget(null);
+  }
+
   return (
     <div className="app-shell" style={themeVars(state.settings.theme)}>
       <div className="flex min-h-screen">
@@ -291,6 +334,8 @@ export default function App() {
                 ...current,
                 projects: current.projects.map((candidate) => candidate.id === project.id ? project : candidate)
               }))}
+              deleteProject={() => deleteProject(activeProject.id)}
+              deleteMilestone={(milestoneId) => deleteMilestone(activeProject.id, milestoneId)}
               newMilestoneName={newMilestoneName}
               setNewMilestoneName={setNewMilestoneName}
               addMilestone={() => addMilestone(activeProject.id)}
@@ -311,6 +356,7 @@ export default function App() {
           close={() => setSelectedTask(null)}
           save={saveTask}
           toggleTask={toggleTask}
+          deleteTask={deleteTask}
         />
       )}
 
@@ -467,15 +513,19 @@ function ProjectView(props: {
   toggleTask: (ref: TaskRef) => void;
   setAddTarget: (target: AddTaskTarget) => void;
   updateProject: (project: Project) => void;
+  deleteProject: () => void;
+  deleteMilestone: (milestoneId: string) => void;
   newMilestoneName: string;
   setNewMilestoneName: (value: string) => void;
   addMilestone: () => void;
 }) {
   const { project } = props;
   const [notesEditing, setNotesEditing] = useState(false);
+  const [editingMilestoneId, setEditingMilestoneId] = useState<string | null>(null);
 
   useEffect(() => {
     setNotesEditing(false);
+    setEditingMilestoneId(null);
   }, [project.id]);
 
   function updateField<K extends keyof Project>(key: K, value: Project[K]) {
@@ -497,6 +547,7 @@ function ProjectView(props: {
           <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
             <ProjectPrioritySlider value={project.priority} onChange={(priority) => updateField("priority", priority)} />
             <ColorPicker value={project.color} colors={identityColors} onChange={(color) => updateField("color", color)} />
+            <IconButton variant="danger" icon="delete" label="Delete project" onClick={props.deleteProject} />
           </div>
         }
       />
@@ -523,11 +574,26 @@ function ProjectView(props: {
         {project.milestones.map((milestone) => (
           <div key={milestone.id} className="w-[320px] shrink-0 rounded-app border p-3" style={{ background: "var(--background-surface)", borderColor: "var(--border-subtle)" }}>
             <div className="mb-3 flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <input className="input mb-2 font-semibold" value={milestone.name} onChange={(event) => updateMilestone({ ...milestone, name: event.target.value })} />
-                <select className="input" value={milestone.urgency} onChange={(event) => updateMilestone({ ...milestone, urgency: event.target.value as Urgency })}>
-                  {urgencyOptions.map((urgency) => <option key={urgency} value={urgency}>{capitalize(urgency)} urgency</option>)}
-                </select>
+              <div className="min-w-0 flex-1">
+                <div className="mb-2 flex items-center gap-2">
+                  {editingMilestoneId === milestone.id ? (
+                    <input className="input font-semibold" value={milestone.name} onChange={(event) => updateMilestone({ ...milestone, name: event.target.value })} />
+                  ) : (
+                    <h2 className="min-w-0 flex-1 truncate text-base font-bold">{milestone.name}</h2>
+                  )}
+                  {editingMilestoneId === milestone.id ? (
+                    <IconButton variant="secondary" icon="check" label="Done editing milestone" onClick={() => setEditingMilestoneId(null)} />
+                  ) : (
+                    <IconButton variant="secondary" icon="edit" label="Edit milestone" onClick={() => setEditingMilestoneId(milestone.id)} />
+                  )}
+                  <IconButton variant="danger" icon="delete" label="Delete milestone" onClick={() => props.deleteMilestone(milestone.id)} />
+                </div>
+                <Dropdown
+                  value={milestone.urgency}
+                  options={urgencyOptions.map((urgency) => ({ value: urgency, label: capitalize(urgency) + " urgency" }))}
+                  onChange={(urgency) => updateMilestone({ ...milestone, urgency: urgency as Urgency })}
+                  ariaLabel="Milestone urgency"
+                />
               </div>
               <IconButton variant="secondary" icon="add" label="Add task" onClick={() => props.setAddTarget({ kind: "project", projectId: project.id, milestoneId: milestone.id })} />
             </div>
@@ -561,27 +627,24 @@ function SettingsView({ state, setState }: { state: AppState; setState: (state: 
     <section className="mx-auto max-w-3xl">
       <Header title="Settings" subtitle="Controls that affect task behavior across the workspace." />
       <div className="grid gap-4 rounded-app border p-4" style={{ background: "var(--background-surface)", borderColor: "var(--border-subtle)" }}>
-        <label className="field">
+        <div className="field">
           <span className="label">Daily reset timezone</span>
-          <select
-            className="input"
+          <Dropdown
             value={state.settings.timezone}
-            onChange={(event) => setState({ ...state, settings: { ...state.settings, timezone: event.target.value } })}
-          >
-            {timezoneOptions.map((timezone) => <option key={timezone} value={timezone}>{timezone}</option>)}
-          </select>
-        </label>
-        <label className="field">
+            options={timezoneOptions.map((timezone) => ({ value: timezone, label: timezone }))}
+            onChange={(timezone) => setState({ ...state, settings: { ...state.settings, timezone } })}
+            ariaLabel="Daily reset timezone"
+          />
+        </div>
+        <div className="field">
           <span className="label">Theme</span>
-          <select
-            className="input"
+          <Dropdown
             value={state.settings.theme}
-            onChange={(event) => setState({ ...state, settings: { ...state.settings, theme: event.target.value as AppState["settings"]["theme"] } })}
-          >
-            <option value="dark">Dark</option>
-            <option value="light">Light</option>
-          </select>
-        </label>
+            options={[{ value: "dark", label: "Dark" }, { value: "light", label: "Light" }]}
+            onChange={(theme) => setState({ ...state, settings: { ...state.settings, theme: theme as AppState["settings"]["theme"] } })}
+            ariaLabel="Theme"
+          />
+        </div>
         <div className="subtle text-sm">Today in the selected timezone is {zonedToday(state.settings.timezone)}.</div>
       </div>
     </section>
@@ -596,6 +659,7 @@ function TaskPopover(props: {
   close: () => void;
   save: (ref: TaskRef, draft: EditorDraft) => void;
   toggleTask: (ref: TaskRef) => void;
+  deleteTask: (ref: TaskRef) => void;
 }) {
   const { details, state } = props;
   const [draft, setDraft] = useState<EditorDraft>(() => draftFromTask(details.task));
@@ -634,6 +698,7 @@ function TaskPopover(props: {
             {details.task.completed ? "Mark incomplete" : "Complete"}
           </button>
           <div className="flex gap-2">
+            <IconButton variant="danger" icon="delete" label="Delete task" onClick={() => props.deleteTask(details.ref)} />
             {props.editing ? (
               <>
                 <button className="btn btn-secondary" onClick={() => props.setEditing(false)}>Cancel</button>
@@ -673,8 +738,7 @@ function AddTaskPopover(props: {
         </div>
         <TaskEditor draft={draft} setDraft={setDraft} projectTasks={projectTasks} />
         <div className="mt-5 flex justify-end gap-2">
-          <button className="btn btn-secondary" onClick={props.close}>Cancel</button>
-          <IconButton variant="primary" icon="add" label="Add task" onClick={() => props.save(props.target, draft)} />
+          <button className="btn btn-primary" onClick={() => props.save(props.target, draft)}>Save</button>
         </div>
       </section>
     </div>
@@ -694,12 +758,15 @@ function TaskEditor(props: {
         <input className="input" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
       </label>
       <div className="grid gap-4 md:grid-cols-2">
-        <label className="field">
+        <div className="field">
           <span className="label">Urgency</span>
-          <select className="input" value={draft.urgency} onChange={(event) => setDraft({ ...draft, urgency: event.target.value as Urgency })}>
-            {urgencyOptions.map((urgency) => <option key={urgency} value={urgency}>{capitalize(urgency)}</option>)}
-          </select>
-        </label>
+          <Dropdown
+            value={draft.urgency}
+            options={urgencyOptions.map((urgency) => ({ value: urgency, label: capitalize(urgency) }))}
+            onChange={(urgency) => setDraft({ ...draft, urgency: urgency as Urgency })}
+            ariaLabel="Task urgency"
+          />
+        </div>
         <label className="field">
           <span className="label">Due date</span>
           <input className="input" type="date" value={draft.dueDate} onChange={(event) => setDraft({ ...draft, dueDate: event.target.value })} />
@@ -710,17 +777,14 @@ function TaskEditor(props: {
         <textarea className="input min-h-24" value={draft.notes} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} />
       </label>
       {props.projectTasks.length > 0 && (
-        <label className="field">
+        <div className="field">
           <span className="label">Dependencies</span>
-          <select
-            className="input min-h-32"
-            multiple
+          <DependencyPicker
+            options={props.projectTasks}
             value={draft.dependencyIds}
-            onChange={(event) => setDraft({ ...draft, dependencyIds: Array.from(event.target.selectedOptions).map((option) => option.value) })}
-          >
-            {props.projectTasks.map((task) => <option key={task.id} value={task.id}>{task.label}</option>)}
-          </select>
-        </label>
+            onChange={(dependencyIds) => setDraft({ ...draft, dependencyIds })}
+          />
+        </div>
       )}
     </div>
   );
@@ -794,6 +858,58 @@ function QueueRow({ item, timezone, openTask, toggleTask }: {
   );
 }
 
+function Dropdown<T extends string>({ value, options, onChange, ariaLabel }: { value: T; options: { value: T; label: string }[]; onChange: (value: T) => void; ariaLabel: string }) {
+  const [open, setOpen] = useState(false);
+  const selected = options.find((option) => option.value === value) ?? options[0];
+
+  return (
+    <div className="dropdown">
+      <button className="dropdown-trigger" type="button" aria-label={ariaLabel} aria-expanded={open} onClick={() => setOpen((current) => !current)}>
+        <span className="truncate">{selected?.label}</span>
+        <MaterialIcon name="expand_more" />
+      </button>
+      {open && (
+        <div className="dropdown-menu">
+          {options.map((option) => (
+            <button
+              key={option.value}
+              className={`dropdown-option ${option.value === value ? "dropdown-option-active" : ""}`}
+              type="button"
+              onClick={() => {
+                onChange(option.value);
+                setOpen(false);
+              }}
+            >
+              <span className="truncate">{option.label}</span>
+              {option.value === value && <MaterialIcon name="check" />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DependencyPicker({ options, value, onChange }: { options: { id: string; label: string }[]; value: string[]; onChange: (value: string[]) => void }) {
+  function toggle(id: string) {
+    onChange(value.includes(id) ? value.filter((candidate) => candidate !== id) : [...value, id]);
+  }
+
+  return (
+    <div className="dependency-picker">
+      {options.map((option) => {
+        const selected = value.includes(option.id);
+        return (
+          <button key={option.id} className={`dependency-option ${selected ? "dependency-option-active" : ""}`} type="button" onClick={() => toggle(option.id)}>
+            <span className="truncate">{option.label}</span>
+            {selected && <MaterialIcon name="check" />}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function ColorPicker({ value, colors, onChange }: { value: string; colors: string[]; onChange: (color: string) => void }) {
   const [open, setOpen] = useState(false);
 
@@ -838,7 +954,7 @@ function MaterialIcon({ name }: { name: string }) {
   return <span className="material-symbols-rounded" aria-hidden="true">{name}</span>;
 }
 
-function IconButton({ variant, icon, label, onClick, disabled = false }: { variant: "primary" | "secondary"; icon: string; label: string; onClick: () => void; disabled?: boolean }) {
+function IconButton({ variant, icon, label, onClick, disabled = false }: { variant: "primary" | "secondary" | "danger"; icon: string; label: string; onClick: () => void; disabled?: boolean }) {
   return (
     <button
       className={`icon-btn btn-${variant}`}
@@ -955,6 +1071,29 @@ function resolveTask(state: AppState, ref: TaskRef): ResolvedTask | null {
     milestoneName: milestone.name,
     blockedBy: blockedByNames(task, project),
     blocking: blockingNames(task, project)
+  };
+}
+
+function removeTask(state: AppState, ref: TaskRef): AppState {
+  if (ref.kind === "general") {
+    return { ...state, generalTasks: state.generalTasks.filter((task) => task.id !== ref.taskId) };
+  }
+
+  if (ref.kind === "daily") {
+    return { ...state, dailyTasks: state.dailyTasks.filter((task) => task.id !== ref.taskId) };
+  }
+
+  return {
+    ...state,
+    projects: state.projects.map((project) => project.id !== ref.projectId ? project : {
+      ...project,
+      milestones: project.milestones.map((milestone) => ({
+        ...milestone,
+        tasks: milestone.tasks
+          .filter((task) => task.id !== ref.taskId)
+          .map((task) => ({ ...task, dependencyIds: task.dependencyIds.filter((id) => id !== ref.taskId) }))
+      }))
+    })
   };
 }
 
