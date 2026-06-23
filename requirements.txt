@@ -1,0 +1,5 @@
+Django>=5.2,<6.1
+PyJWT>=2.8
+webauthn>=2.0
+gunicorn>=21
+python-dotenv>=1.0
