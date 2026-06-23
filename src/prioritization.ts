@@ -109,7 +109,6 @@ export function buildWorkQueue(state: AppState, includeBlocked = false): WorkQue
           ref: { kind: "project", projectId: project.id, milestoneId: milestone.id, taskId: task.id },
           sortTuple: [
             project.priority,
-            urgencyValue(milestone.urgency),
             urgencyValue(task.urgency),
             dueSort(task.dueDate)
           ]

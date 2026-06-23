@@ -138,6 +138,68 @@ app.post("/api/task", (request, response) => {
   response.status(201).json({ id: newTask.id });
 });
 
+app.get("/api/projects", (request, response) => {
+  if (!validateApiKey(request)) {
+    response.status(401).json({ error: "Invalid or missing API key." });
+    return;
+  }
+  const state = getState(db);
+  const projects = (state.projects ?? []).map((p) => ({
+    id: p.id,
+    name: p.name,
+    priority: p.priority,
+    color: p.color,
+    ...(p.notes ? { notes: p.notes } : {})
+  }));
+  response.json({ projects });
+});
+
+app.get("/api/projects/:id", (request, response) => {
+  if (!validateApiKey(request)) {
+    response.status(401).json({ error: "Invalid or missing API key." });
+    return;
+  }
+  const state = getState(db);
+  const project = (state.projects ?? []).find((p) => p.id === request.params.id);
+  if (!project) {
+    response.status(404).json({ error: "Project not found." });
+    return;
+  }
+  const allTasks = project.milestones.flatMap((m) => m.tasks);
+  const taskById = new Map(allTasks.map((t) => [t.id, t]));
+  response.json({
+    id: project.id,
+    name: project.name,
+    priority: project.priority,
+    color: project.color,
+    ...(project.notes ? { notes: project.notes } : {}),
+    milestones: project.milestones.map((m) => ({
+      id: m.id,
+      name: m.name,
+      ...(m.notes ? { notes: m.notes } : {}),
+      tasks: m.tasks.map((t) => ({
+        id: t.id,
+        name: t.name,
+        completed: t.completed,
+        urgency: t.urgency,
+        ...(t.dueDate ? { dueDate: t.dueDate } : {}),
+        ...(t.notes ? { notes: t.notes } : {}),
+        dependencies: t.dependencyIds.map((depId) => {
+          const dep = taskById.get(depId);
+          return dep ? { id: depId, name: dep.name } : { id: depId };
+        }),
+        blockedBy: t.dependencyIds
+          .map((depId) => taskById.get(depId))
+          .filter((dep) => dep && !dep.completed)
+          .map((dep) => ({ id: dep.id, name: dep.name })),
+        blocking: allTasks
+          .filter((other) => other.dependencyIds.includes(t.id) && !other.completed)
+          .map((other) => ({ id: other.id, name: other.name }))
+      }))
+    }))
+  });
+});
+
 app.use(express.static(distDir));
 app.get(/.*/, (_request, response) => {
   response.sendFile(path.join(distDir, "index.html"));

@@ -31,7 +31,6 @@ export type ProjectTask = TaskBase & {
 export type Milestone = {
   id: string;
   name: string;
-  urgency: Urgency;
   notes?: string;
   tasks: ProjectTask[];
 };

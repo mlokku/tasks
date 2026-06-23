@@ -73,7 +73,6 @@ export function createInitialState(): AppState {
           {
             id: "milestone-1",
             name: "Plan",
-            urgency: "high",
             tasks: [
               {
                 id: "project-task-1",
@@ -98,7 +97,6 @@ export function createInitialState(): AppState {
           {
             id: "milestone-2",
             name: "Rollout",
-            urgency: "medium",
             tasks: [
               {
                 id: "project-task-3",
@@ -129,7 +127,6 @@ export function createInitialState(): AppState {
           {
             id: "milestone-3",
             name: "Setup",
-            urgency: "medium",
             tasks: [
               {
                 id: "project-task-5",

@@ -307,7 +307,6 @@ export default function App({ onUnauthorized }: { onUnauthorized: () => void }) 
             {
               id: uid("milestone"),
               name: "Backlog",
-              urgency: "medium",
               tasks: []
             }
           ]
@@ -330,7 +329,6 @@ export default function App({ onUnauthorized }: { onUnauthorized: () => void }) 
           {
             id: uid("milestone"),
             name,
-            urgency: "medium",
             tasks: []
           }
         ]
@@ -1034,12 +1032,6 @@ function ProjectView(props: {
                     )}
                   </div>
                 </div>
-                <Dropdown
-                  value={milestone.urgency}
-                  options={urgencyOptions.map((urgency) => ({ value: urgency, label: capitalize(urgency) + " urgency" }))}
-                  onChange={(urgency) => updateMilestone({ ...milestone, urgency: urgency as Urgency })}
-                  ariaLabel="Milestone urgency"
-                />
               </div>
               <IconButton variant="secondary" icon="add" label="Add task" onClick={() => props.setAddTarget({ kind: "project", projectId: project.id, milestoneId: milestone.id })} />
             </div>
@@ -1772,7 +1764,6 @@ type ImportRawTask = {
 type ImportRawMilestone = {
   internalId: string;
   name: string;
-  urgency: Urgency;
   notes: string | undefined;
   tasks: ImportRawTask[];
 };
@@ -1834,7 +1825,6 @@ function parseImportMilestone(raw: unknown, index: number): ImportRawMilestone {
   return {
     internalId: uid("milestone"),
     name,
-    urgency: importUrgency(obj, "urgency"),
     notes: importStr(obj, "notes"),
     tasks: (obj.tasks as unknown[]).map((t, i) => parseImportTask(t, i))
   };
@@ -1868,7 +1858,6 @@ function buildProjectFromImport(raw: unknown, existingProjects: Project[]): Proj
     milestones: rawMilestones.map((m) => ({
       id: m.internalId,
       name: m.name,
-      urgency: m.urgency,
       notes: m.notes,
       tasks: m.tasks.map((t) => ({
         id: t.internalId,
@@ -1932,7 +1921,6 @@ function ImportProjectSection({ state, setState, showToast }: {
   "milestones": [
     {
       "milestone name": "Discovery",
-      "urgency": "high",
       "notes": "Optional milestone-level notes.",
       "tasks": [
         {
@@ -1963,7 +1951,6 @@ function ImportProjectSection({ state, setState, showToast }: {
     },
     {
       "milestone name": "Build",
-      "urgency": "medium",
       "tasks": [
         {
           "task name": "Implement core features",
@@ -1983,7 +1970,6 @@ function ImportProjectSection({ state, setState, showToast }: {
     },
     {
       "milestone name": "Launch",
-      "urgency": "low",
       "tasks": [
         {
           "task name": "Deploy to production",
