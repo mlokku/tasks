@@ -128,6 +128,26 @@ export default function App({ onUnauthorized }: { onUnauthorized: () => void }) 
     setAddTarget(null);
   }, [location.pathname]);
 
+  // Refresh inbox from server whenever the user navigates to the dashboard,
+  // so messages posted by external agents appear without a full reload.
+  useEffect(() => {
+    if (!loaded || view.type !== "dashboard") return;
+    let cancelled = false;
+    loadState()
+      .then((fresh) => {
+        if (cancelled) return;
+        setState((current) => ({
+          ...current,
+          inboxMessages: fresh.inboxMessages,
+          inboxTasks: fresh.inboxTasks,
+        }));
+      })
+      .catch((err) => {
+        if (err instanceof UnauthorizedError) onUnauthorized();
+      });
+    return () => { cancelled = true; };
+  }, [location.pathname, loaded]);
+
   useEffect(() => {
     let cancelled = false;
     loadState()
@@ -406,6 +426,13 @@ export default function App({ onUnauthorized }: { onUnauthorized: () => void }) 
     }));
   }
 
+  function deleteInboxMessage(id: string) {
+    updateState((current) => ({
+      ...current,
+      inboxMessages: current.inboxMessages.filter((msg) => msg.id !== id)
+    }));
+  }
+
   function assignInboxTask(task: InboxTask, target: { kind: "general" } | { kind: "project"; projectId: string; milestoneId: string }) {
     updateState((current) => {
       const remaining = current.inboxTasks.filter((t) => t.id !== task.id);
@@ -456,7 +483,7 @@ export default function App({ onUnauthorized }: { onUnauthorized: () => void }) 
           {!loaded && <div className="mb-4 rounded-app border p-3 text-sm subtle" style={{ background: "var(--background-surface)", borderColor: "var(--border-subtle)" }}>Loading your workspace...</div>}
           {saveError && <div className="mb-4 rounded-app border p-3 text-sm" style={{ background: "var(--status-red-background)", borderColor: "var(--status-red-bar)", color: "var(--status-red-text)" }}>{saveError}</div>}
           {view.type === "dashboard" && (
-            <Dashboard state={state} queue={queue} openTask={openTask} setTaskStage={setTaskStage} markMessageRead={markMessageRead} markAllMessagesRead={markAllMessagesRead} onSelectInboxTask={setSelectedInboxTask} />
+            <Dashboard state={state} queue={queue} openTask={openTask} setTaskStage={setTaskStage} markMessageRead={markMessageRead} markAllMessagesRead={markAllMessagesRead} deleteInboxMessage={deleteInboxMessage} onSelectInboxTask={setSelectedInboxTask} />
           )}
           {view.type === "general" && (
             <TaskListView
@@ -758,11 +785,12 @@ function MiniCalendar({ state }: { state: AppState }) {
   );
 }
 
-function InboxTile({ messages, tasks, onMarkRead, onMarkAllRead, onSelectTask }: {
+function InboxTile({ messages, tasks, onMarkRead, onMarkAllRead, onDeleteMessage, onSelectTask }: {
   messages: InboxMessage[];
   tasks: InboxTask[];
   onMarkRead: (id: string) => void;
   onMarkAllRead: () => void;
+  onDeleteMessage: (id: string) => void;
   onSelectTask: (task: InboxTask) => void;
 }) {
   const unreadMessages = messages.filter((m) => !m.read).length;
@@ -837,6 +865,14 @@ function InboxTile({ messages, tasks, onMarkRead, onMarkAllRead, onSelectTask }:
                         <MaterialIcon name="check" />
                       </button>
                     )}
+                    <button
+                      className="icon-btn btn-secondary"
+                      style={{ width: "1.25rem", height: "1.25rem" }}
+                      title="Delete message"
+                      onClick={() => onDeleteMessage(entry.data.id)}
+                    >
+                      <MaterialIcon name="close" />
+                    </button>
                   </div>
                 </div>
                 <p className="subtle text-xs mt-0.5 leading-snug break-words">{entry.data.message}</p>
@@ -859,9 +895,10 @@ function Dashboard(props: {
   setTaskStage: (ref: TaskRef, stage: TaskStage) => void;
   markMessageRead: (id: string) => void;
   markAllMessagesRead: () => void;
+  deleteInboxMessage: (id: string) => void;
   onSelectInboxTask: (task: InboxTask) => void;
 }) {
-  const { state, queue, openTask, setTaskStage, markMessageRead, markAllMessagesRead, onSelectInboxTask } = props;
+  const { state, queue, openTask, setTaskStage, markMessageRead, markAllMessagesRead, deleteInboxMessage, onSelectInboxTask } = props;
   const completedToday = state.dailyTasks.filter((t) => t.completed).length;
   const generalRemaining = state.generalTasks.filter((t) => !t.completed).length;
 
@@ -884,7 +921,7 @@ function Dashboard(props: {
         </div>
         <div className="grid gap-4">
           <MiniCalendar state={state} />
-          <InboxTile messages={state.inboxMessages} tasks={state.inboxTasks} onMarkRead={markMessageRead} onMarkAllRead={markAllMessagesRead} onSelectTask={onSelectInboxTask} />
+          <InboxTile messages={state.inboxMessages} tasks={state.inboxTasks} onMarkRead={markMessageRead} onMarkAllRead={markAllMessagesRead} onDeleteMessage={deleteInboxMessage} onSelectTask={onSelectInboxTask} />
         </div>
         <div>
           <h2 className="text-base font-bold mb-3">Work queue</h2>

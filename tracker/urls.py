@@ -3,6 +3,7 @@ from django.urls import path, re_path
 from . import views
 
 urlpatterns = [
+    path("api/def", views.api_def),
     path("api/health", views.health),
     path("api/state", views.state),
     # Auth (WebAuthn passkeys + JWT session)

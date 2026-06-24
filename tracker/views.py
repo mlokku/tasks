@@ -188,6 +188,96 @@ def _safe_transports(raw):
 # API-key protected ingestion + read endpoints
 # --------------------------------------------------------------------------- #
 
+def api_def(request):
+    """Machine-readable API definition for AI agents to self-configure requests."""
+    if request.method != "GET":
+        return HttpResponseNotAllowed(["GET"])
+    if not _valid_api_key(request):
+        return JsonResponse({"error": "Invalid or missing API key."}, status=401)
+    return JsonResponse({
+        "version": "1",
+        "auth": {
+            "description": "All API-key endpoints require a valid API key.",
+            "methods": [
+                {
+                    "header": "Authorization",
+                    "format": "Bearer <api_key>",
+                },
+                {
+                    "header": "X-Api-Key",
+                    "format": "<api_key>",
+                },
+            ],
+        },
+        "endpoints": [
+            {
+                "path": "/api/def",
+                "method": "GET",
+                "auth": False,
+                "description": "Returns this API definition.",
+                "response": {"version": "string", "auth": "object", "endpoints": "array"},
+            },
+            {
+                "path": "/api/health",
+                "method": "GET",
+                "auth": False,
+                "description": "Health check.",
+                "response": {"ok": "boolean"},
+            },
+            {
+                "path": "/api/message",
+                "method": "POST",
+                "auth": True,
+                "description": "Submit an inbox message from an external agent.",
+                "body": {
+                    "from": {"type": "string", "required": True, "description": "Sender name or identifier."},
+                    "message": {"type": "string", "required": True, "description": "Message text."},
+                },
+                "response": {"id": "string"},
+            },
+            {
+                "path": "/api/task",
+                "method": "POST",
+                "auth": True,
+                "description": "Submit a task to the inbox for review.",
+                "body": {
+                    "name": {"type": "string", "required": True, "description": "Task name. Also accepted as 'task name'."},
+                    "urgency": {"type": "string", "required": False, "enum": ["low", "medium", "high"], "default": "medium"},
+                    "dueDate": {"type": "string", "required": False, "description": "ISO 8601 date, e.g. 2026-07-01."},
+                    "notes": {"type": "string", "required": False},
+                },
+                "response": {"id": "string"},
+            },
+            {
+                "path": "/api/projects",
+                "method": "GET",
+                "auth": True,
+                "description": "List all projects.",
+                "response": {
+                    "projects": "array of {id, name, priority, color, notes?}",
+                },
+            },
+            {
+                "path": "/api/projects/<project_id>",
+                "method": "GET",
+                "auth": True,
+                "description": "Get full detail for one project, including milestones, tasks, dependencies.",
+                "params": {
+                    "project_id": {"type": "string", "description": "Project ID from /api/projects."},
+                },
+                "response": {
+                    "id": "string",
+                    "name": "string",
+                    "priority": "number",
+                    "color": "string",
+                    "notes": "string (optional)",
+                    "milestones": "array of {id, name, notes?, tasks: array of {id, name, completed, urgency, dueDate?, notes?, dependencies, blockedBy, blocking}}",
+                },
+            },
+        ],
+    })
+
+
 def _resolve_api_key(request):
     header = request.headers.get("Authorization")
     if isinstance(header, str) and header.startswith("Bearer "):

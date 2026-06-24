@@ -44,5 +44,7 @@ fi
 printf 'Starting Task Tracker at http://localhost:%s/ ...\n' "${PORT}"
 exec python -m gunicorn tasktracker.wsgi:application \
   --bind "${HOST}:${PORT}" \
+  --worker-class gthread \
   --workers "${WEB_CONCURRENCY:-3}" \
+  --threads "${WEB_THREADS:-4}" \
   --timeout "${WEB_TIMEOUT:-30}"
