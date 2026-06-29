@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Datepicker } from "flowbite-react";
 import type { ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { buildWorkQueue, blockedByNames, blockingNames } from "./prioritization";
@@ -1234,10 +1235,10 @@ function TaskEditor(props: {
             ariaLabel="Task urgency"
           />
         </div>
-        <label className="field">
+        <div className="field">
           <span className="label">Due date</span>
-          <input className="input" type="date" value={draft.dueDate} onChange={(event) => setDraft({ ...draft, dueDate: event.target.value })} />
-        </label>
+          <ThemedDatepicker value={draft.dueDate} onChange={(date) => setDraft({ ...draft, dueDate: date })} />
+        </div>
       </div>
       <label className="field">
         <span className="label">Notes</span>
@@ -1327,14 +1328,32 @@ function QueueRow({ item, timezone, openTask, setTaskStage }: {
   );
 }
 
-function Dropdown<T extends string>({ value, options, onChange, ariaLabel }: { value: T; options: { value: T; label: string }[]; onChange: (value: T) => void; ariaLabel: string }) {
+function Dropdown<T extends string>({ value, options, onChange, ariaLabel, placeholder, disabled }: { value: T | ""; options: { value: T; label: string }[]; onChange: (value: T) => void; ariaLabel: string; placeholder?: string; disabled?: boolean }) {
   const [open, setOpen] = useState(false);
-  const selected = options.find((option) => option.value === value) ?? options[0];
+  const rootRef = useRef<HTMLDivElement>(null);
+  const selected = options.find((option) => option.value === value);
+  const displayLabel = selected?.label ?? placeholder ?? options[0]?.label;
+
+  useEffect(() => {
+    if (!open) return;
+    function onMouseDown(e: MouseEvent) {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onMouseDown);
+    return () => document.removeEventListener("mousedown", onMouseDown);
+  }, [open]);
 
   return (
-    <div className="dropdown">
-      <button className="dropdown-trigger" type="button" aria-label={ariaLabel} aria-expanded={open} onClick={() => setOpen((current) => !current)}>
-        <span className="truncate">{selected?.label}</span>
+    <div className="dropdown" ref={rootRef}>
+      <button
+        className="dropdown-trigger"
+        type="button"
+        aria-label={ariaLabel}
+        aria-expanded={open}
+        disabled={disabled}
+        onClick={() => { if (!disabled) setOpen((current) => !current); }}
+      >
+        <span className="truncate" style={!selected && placeholder ? { color: "var(--input-placeholder)" } : undefined}>{displayLabel}</span>
         <MaterialIcon name="expand_more" />
       </button>
       {open && (
@@ -1352,6 +1371,84 @@ function Dropdown<T extends string>({ value, options, onChange, ariaLabel }: { v
               <span className="truncate">{option.label}</span>
               {option.value === value && <MaterialIcon name="check" />}
             </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SearchableGroupedDropdown({ value, onChange, groups, labelFn, ariaLabel }: {
+  value: string;
+  onChange: (value: string) => void;
+  groups: { group: string; zones: string[] }[];
+  labelFn: (zone: string) => string;
+  ariaLabel: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const rootRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!open) { setQuery(""); return; }
+    function onMouseDown(e: MouseEvent) {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onMouseDown);
+    return () => document.removeEventListener("mousedown", onMouseDown);
+  }, [open]);
+
+  useEffect(() => {
+    if (open) window.setTimeout(() => searchRef.current?.focus(), 0);
+  }, [open]);
+
+  const lowerQuery = query.toLowerCase();
+  const filteredGroups = groups
+    .map(({ group, zones }) => ({ group, zones: zones.filter((z) => labelFn(z).toLowerCase().includes(lowerQuery)) }))
+    .filter(({ zones }) => zones.length > 0);
+
+  return (
+    <div className="dropdown" ref={rootRef}>
+      <button
+        className="dropdown-trigger"
+        type="button"
+        aria-label={ariaLabel}
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+      >
+        <span className="truncate">{labelFn(value)}</span>
+        <MaterialIcon name="expand_more" />
+      </button>
+      {open && (
+        <div className="dropdown-menu" style={{ maxHeight: "320px" }}>
+          <div className="px-1 pb-1">
+            <input
+              ref={searchRef}
+              className="input py-1.5 text-sm"
+              placeholder="Search timezones…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+          {filteredGroups.length === 0 ? (
+            <div className="px-3 py-2 text-sm muted">No timezones found</div>
+          ) : filteredGroups.map(({ group, zones }) => (
+            <div key={group}>
+              <div className="label px-3 pt-2 pb-1">{group}</div>
+              {zones.map((zone) => (
+                <button
+                  key={zone}
+                  className={`dropdown-option ${zone === value ? "dropdown-option-active" : ""}`}
+                  type="button"
+                  onClick={() => { onChange(zone); setOpen(false); }}
+                >
+                  <span className="truncate">{labelFn(zone)}</span>
+                  {zone === value && <MaterialIcon name="check" />}
+                </button>
+              ))}
+            </div>
           ))}
         </div>
       )}
@@ -1607,15 +1704,141 @@ function ColorDot({ color }: { color: string }) {
 
 function TimezoneSelect({ value, onChange }: { value: string; onChange: (zone: string) => void }) {
   return (
-    <select className="input" value={value} aria-label="Daily reset timezone" onChange={(e) => onChange(e.target.value)}>
-      {timezoneGroups.map(({ group, zones }) => (
-        <optgroup key={group} label={group}>
-          {zones.map((zone) => (
-            <option key={zone} value={zone}>{timezoneLabel(zone)}</option>
-          ))}
-        </optgroup>
-      ))}
-    </select>
+    <SearchableGroupedDropdown
+      value={value}
+      onChange={onChange}
+      groups={timezoneGroups}
+      labelFn={timezoneLabel}
+      ariaLabel="Daily reset timezone"
+    />
+  );
+}
+
+const datepickerTheme = {
+  root: { base: "relative" },
+  popup: {
+    root: {
+      base: "absolute top-10 z-50 block pt-2",
+      inline: "relative top-0 z-auto",
+      inner: "inline-block rounded-app border p-4 shadow-xl bg-[var(--background-surface-elevated)] border-[var(--border-default)]"
+    },
+    header: {
+      base: "",
+      title: "px-2 py-3 text-center font-semibold text-[var(--foreground-primary)]",
+      selectors: {
+        base: "mb-2 flex justify-between",
+        button: {
+          base: "rounded-app px-5 py-2.5 text-sm font-semibold bg-[var(--background-surface-elevated)] text-[var(--foreground-primary)] hover:bg-[var(--background-surface-hover)] focus:outline-none",
+          prev: "",
+          next: "",
+          view: ""
+        }
+      }
+    },
+    view: { base: "p-1" },
+    footer: {
+      base: "mt-2 flex space-x-2",
+      button: {
+        base: "w-full rounded-app px-5 py-2 text-center text-sm font-semibold",
+        today: "bg-[var(--button-primary-background)] text-[var(--button-primary-text)] hover:bg-[var(--button-primary-background-hover)]",
+        clear: "border bg-[var(--button-secondary-background)] text-[var(--button-secondary-text)] hover:bg-[var(--button-secondary-background-hover)] border-[var(--border-default)]"
+      }
+    }
+  },
+  views: {
+    days: {
+      header: {
+        base: "mb-1 grid grid-cols-7",
+        title: "h-6 text-center text-sm font-medium leading-6 text-[var(--foreground-tertiary)]"
+      },
+      items: {
+        base: "grid w-64 grid-cols-7",
+        item: {
+          base: "block flex-1 cursor-pointer rounded-app border-0 text-center text-sm font-semibold leading-9 text-[var(--foreground-primary)] hover:bg-[var(--background-surface-hover)]",
+          selected: "bg-[var(--accent-brand)] text-[var(--button-primary-text)] hover:bg-[var(--button-primary-background-hover)]",
+          disabled: "text-[var(--foreground-disabled)] cursor-not-allowed",
+          today: "font-bold underline"
+        }
+      }
+    },
+    months: {
+      items: {
+        base: "grid w-64 grid-cols-4",
+        item: {
+          base: "block flex-1 cursor-pointer rounded-app border-0 text-center text-sm font-semibold leading-9 text-[var(--foreground-primary)] hover:bg-[var(--background-surface-hover)]",
+          selected: "bg-[var(--accent-brand)] text-[var(--button-primary-text)]",
+          disabled: "text-[var(--foreground-disabled)]"
+        }
+      }
+    },
+    years: {
+      items: {
+        base: "grid w-64 grid-cols-4",
+        item: {
+          base: "block flex-1 cursor-pointer rounded-app border-0 text-center text-sm font-semibold leading-9 text-[var(--foreground-primary)] hover:bg-[var(--background-surface-hover)]",
+          selected: "bg-[var(--accent-brand)] text-[var(--button-primary-text)]",
+          disabled: "text-[var(--foreground-disabled)]"
+        }
+      }
+    },
+    decades: {
+      items: {
+        base: "grid w-64 grid-cols-4",
+        item: {
+          base: "block flex-1 cursor-pointer rounded-app border-0 text-center text-sm font-semibold leading-9 text-[var(--foreground-primary)] hover:bg-[var(--background-surface-hover)]",
+          selected: "bg-[var(--accent-brand)] text-[var(--button-primary-text)]",
+          disabled: "text-[var(--foreground-disabled)]"
+        }
+      }
+    }
+  }
+};
+
+const datepickerInputTheme = {
+  base: "flex",
+  addon: "",
+  field: {
+    base: "relative w-full",
+    icon: {
+      base: "pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3",
+      svg: "h-5 w-5 text-[var(--foreground-tertiary)]"
+    },
+    rightIcon: { base: "", svg: "" },
+    input: {
+      base: "block w-full border rounded-app pl-10 pr-3 py-2 outline-none transition focus:ring-1 disabled:cursor-not-allowed disabled:opacity-50",
+      sizes: { sm: "", md: "", lg: "" },
+      colors: {
+        gray: "border-[var(--input-border)] bg-[var(--input-background)] text-[var(--input-text)] placeholder:text-[var(--input-placeholder)] focus:border-[var(--input-border-focus)] focus:ring-[var(--accent-brand-soft)]"
+      },
+      withRightIcon: { on: "", off: "" },
+      withIcon: { on: "pl-10", off: "pl-3" },
+      withAddon: { on: "rounded-r-app", off: "rounded-app" },
+      withShadow: { on: "", off: "" }
+    }
+  }
+};
+
+function ThemedDatepicker({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const dateValue = value ? new Date(value + "T00:00:00") : null;
+
+  function handleChange(date: Date | null) {
+    if (!date) { onChange(""); return; }
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    onChange(`${y}-${m}-${d}`);
+  }
+
+  return (
+    <div className="themed-datepicker">
+      <Datepicker
+        value={dateValue}
+        onChange={handleChange}
+        showTodayButton
+        showClearButton
+        theme={{ ...datepickerTheme, root: { ...datepickerTheme.root, input: datepickerInputTheme } } as Parameters<typeof Datepicker>[0]["theme"]}
+      />
+    </div>
   );
 }
 
@@ -2333,18 +2556,21 @@ function AssignTaskPopover({ task, state, onAssign, onClose }: {
             <div className="flex-1 h-px" style={{ background: "var(--border-subtle)" }} />
           </div>
 
-          <select className="input" value={selectedProjectId} onChange={(e) => handleProjectChange(e.target.value)}>
-            <option value="">Select project...</option>
-            {state.projects.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </select>
-          <select className="input" value={selectedMilestoneId} onChange={(e) => setSelectedMilestoneId(e.target.value)} disabled={!selectedProject}>
-            <option value="">Select milestone...</option>
-            {selectedProject?.milestones.map((m) => (
-              <option key={m.id} value={m.id}>{m.name}</option>
-            ))}
-          </select>
+          <Dropdown
+            value={selectedProjectId}
+            options={state.projects.map((p) => ({ value: p.id, label: p.name }))}
+            onChange={handleProjectChange}
+            ariaLabel="Select project"
+            placeholder="Select project..."
+          />
+          <Dropdown
+            value={selectedMilestoneId}
+            options={(selectedProject?.milestones ?? []).map((m) => ({ value: m.id, label: m.name }))}
+            onChange={setSelectedMilestoneId}
+            ariaLabel="Select milestone"
+            placeholder="Select milestone..."
+            disabled={!selectedProject}
+          />
           <button
             className="btn btn-secondary"
             disabled={!canAssignToMilestone}
