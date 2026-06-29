@@ -395,3 +395,29 @@ button:disabled {
   background: var(--background-surface-elevated);
   box-shadow: 0 1px 3px var(--shadow-default);
 }
+
+.themed-datepicker input[type="text"] {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid var(--input-border);
+  background: var(--input-background);
+  color: var(--input-text);
+  box-shadow: none;
+  outline: none;
+}
+
+.themed-datepicker input[type="text"]::placeholder {
+  color: var(--input-placeholder);
+}
+
+.themed-datepicker input[type="text"]:focus {
+  border-color: var(--input-border-focus);
+  box-shadow: 0 0 0 3px var(--accent-brand-soft);
+  outline: none;
+}
+
+/* Leading/trailing days that belong to the adjacent month — greyed but still selectable. */
+.themed-datepicker .datepicker-adjacent {
+  color: var(--foreground-disabled);
+  opacity: 0.6;
+}
