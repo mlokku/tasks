@@ -415,3 +415,9 @@ button:disabled {
   box-shadow: 0 0 0 3px var(--accent-brand-soft);
   outline: none;
 }
+
+/* Leading/trailing days that belong to the adjacent month — greyed but still selectable. */
+.themed-datepicker .datepicker-adjacent {
+  color: var(--foreground-disabled);
+  opacity: 0.6;
+}

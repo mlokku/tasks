@@ -1731,7 +1731,7 @@ const datepickerTheme = {
           base: "rounded-app px-3 py-1.5 text-xs font-semibold bg-[var(--background-surface-elevated)] text-[var(--foreground-primary)] hover:bg-[var(--background-surface-hover)] focus:outline-none",
           prev: "",
           next: "",
-          view: "datepicker-view-btn"
+          view: ""
         }
       }
     },
@@ -1818,65 +1818,49 @@ const datepickerInputTheme = {
   }
 };
 
-const CALENDAR_MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-
 function ThemedDatepicker({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   const dateValue = value ? new Date(value + "T00:00:00") : null;
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  const [viewMonth, setViewMonth] = useState<{ year: number; month: number }>(() => {
-    const d = dateValue ?? new Date();
-    return { year: d.getFullYear(), month: d.getMonth() };
-  });
-
-  // Sync view month when the selected date changes externally
-  useEffect(() => {
-    if (dateValue) setViewMonth({ year: dateValue.getFullYear(), month: dateValue.getMonth() });
-  }, [value]);
-
-  // Watch the calendar popup: detect month navigation and fix grid rows
+  // Flowbite always renders a fixed 6-week (42-cell) day grid where every cell
+  // is a fully selectable date, with no built-in distinction between the
+  // displayed month and the leading/trailing days that spill in from the
+  // adjacent months. We decorate the grid ourselves after each render: grey out
+  // the adjacent-month days and hide any trailing week that is entirely in the
+  // next month, so the popup is only as tall as the month needs (4, 5 or 6 rows).
   useEffect(() => {
     const wrapper = wrapperRef.current;
     if (!wrapper) return;
 
-    function update() {
-      // Read current view month from the header "view" button text ("January 2026" etc.)
-      const viewBtn = wrapper!.querySelector(".datepicker-view-btn");
-      if (viewBtn?.textContent) {
-        const parts = viewBtn.textContent.trim().split(" ");
-        if (parts.length === 2) {
-          const monthIdx = CALENDAR_MONTHS.indexOf(parts[0]);
-          const year = parseInt(parts[1]);
-          if (monthIdx >= 0 && year > 1900) {
-            setViewMonth(prev => (prev.year === year && prev.month === monthIdx ? prev : { year, month: monthIdx }));
-          }
-        }
-      }
-
-      // Dynamically trim extra rows: hide cells beyond the last in-month cell
+    function decorate() {
       const grid = wrapper!.querySelector(".datepicker-days-grid");
       if (!grid) return;
-      const cells = grid.querySelectorAll("button");
+      const cells = Array.from(grid.querySelectorAll<HTMLButtonElement>("button"));
       if (cells.length !== 42) return;
-      let lastEnabled = -1;
-      for (let i = 41; i >= 0; i--) {
-        if (!(cells[i] as HTMLButtonElement).disabled) { lastEnabled = i; break; }
-      }
-      if (lastEnabled < 0) return;
-      const rows = Math.ceil((lastEnabled + 1) / 7);
-      for (let i = 0; i < 42; i++) {
-        (cells[i] as HTMLElement).style.display = i >= rows * 7 ? "none" : "";
-      }
+
+      const dayNumbers = cells.map((cell) => parseInt(cell.textContent ?? "", 10));
+      // The first "1" is the current month's 1st; the next "1" begins next month.
+      const firstOfMonth = Math.max(dayNumbers.indexOf(1), 0);
+      const nextReset = dayNumbers.indexOf(1, firstOfMonth + 1);
+      const firstOfNextMonth = nextReset === -1 ? 42 : nextReset;
+      const rowsToShow = Math.ceil(firstOfNextMonth / 7);
+
+      cells.forEach((cell, index) => {
+        const inDisplayedMonth = index >= firstOfMonth && index < firstOfNextMonth;
+        cell.classList.toggle("datepicker-adjacent", !inDisplayedMonth);
+        cell.style.display = index >= rowsToShow * 7 ? "none" : "";
+      });
     }
 
-    const observer = new MutationObserver(update);
-    observer.observe(wrapper, { childList: true, subtree: true });
+    // childList + characterData catches both the initial popup mount and the
+    // in-place day-number updates React makes when navigating between months.
+    // We only mutate attributes (class/style), which are not observed, so this
+    // cannot feed back into itself.
+    const observer = new MutationObserver(decorate);
+    observer.observe(wrapper, { childList: true, subtree: true, characterData: true });
+    decorate();
     return () => observer.disconnect();
   }, []);
-
-  function filterDate(date: Date): boolean {
-    return date.getFullYear() === viewMonth.year && date.getMonth() === viewMonth.month;
-  }
 
   function handleChange(date: Date | null) {
     if (!date) { onChange(""); return; }
@@ -1891,7 +1875,6 @@ function ThemedDatepicker({ value, onChange }: { value: string; onChange: (value
       <Datepicker
         value={dateValue}
         onChange={handleChange}
-        filterDate={filterDate}
         label=""
         showTodayButton
         showClearButton
