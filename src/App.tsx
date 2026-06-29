@@ -1720,18 +1720,18 @@ const datepickerTheme = {
     root: {
       base: "absolute top-10 z-50 block pt-2",
       inline: "relative top-0 z-auto",
-      inner: "inline-block rounded-app border p-4 shadow-xl bg-[var(--background-surface-elevated)] border-[var(--border-default)]"
+      inner: "inline-block rounded-app border p-3 shadow-xl bg-[var(--background-surface-elevated)] border-[var(--border-default)]"
     },
     header: {
       base: "",
-      title: "px-2 py-3 text-center font-semibold text-[var(--foreground-primary)]",
+      title: "px-2 py-2 text-center text-xs font-semibold text-[var(--foreground-primary)]",
       selectors: {
         base: "mb-2 flex justify-between",
         button: {
-          base: "rounded-app px-5 py-2.5 text-sm font-semibold bg-[var(--background-surface-elevated)] text-[var(--foreground-primary)] hover:bg-[var(--background-surface-hover)] focus:outline-none",
+          base: "rounded-app px-3 py-1.5 text-xs font-semibold bg-[var(--background-surface-elevated)] text-[var(--foreground-primary)] hover:bg-[var(--background-surface-hover)] focus:outline-none",
           prev: "",
           next: "",
-          view: ""
+          view: "datepicker-view-btn"
         }
       }
     },
@@ -1739,7 +1739,7 @@ const datepickerTheme = {
     footer: {
       base: "mt-2 flex space-x-2",
       button: {
-        base: "w-full rounded-app px-5 py-2 text-center text-sm font-semibold",
+        base: "w-full rounded-app px-3 py-1.5 text-center text-xs font-semibold",
         today: "bg-[var(--button-primary-background)] text-[var(--button-primary-text)] hover:bg-[var(--button-primary-background-hover)]",
         clear: "border bg-[var(--button-secondary-background)] text-[var(--button-secondary-text)] hover:bg-[var(--button-secondary-background-hover)] border-[var(--border-default)]"
       }
@@ -1749,45 +1749,45 @@ const datepickerTheme = {
     days: {
       header: {
         base: "mb-1 grid grid-cols-7",
-        title: "h-6 text-center text-sm font-medium leading-6 text-[var(--foreground-tertiary)]"
+        title: "h-5 text-center text-xs font-medium leading-5 text-[var(--foreground-tertiary)]"
       },
       items: {
-        base: "grid w-64 grid-cols-7",
+        base: "grid w-56 grid-cols-7 datepicker-days-grid",
         item: {
-          base: "block flex-1 cursor-pointer rounded-app border-0 text-center text-sm font-semibold leading-9 text-[var(--foreground-primary)] hover:bg-[var(--background-surface-hover)]",
+          base: "block flex-1 cursor-pointer rounded-md border-0 text-center text-xs font-semibold leading-7 text-[var(--foreground-primary)] hover:bg-[var(--background-surface-hover)]",
           selected: "bg-[var(--accent-brand)] text-[var(--button-primary-text)] hover:bg-[var(--button-primary-background-hover)]",
-          disabled: "text-[var(--foreground-disabled)] cursor-not-allowed",
+          disabled: "text-[var(--foreground-disabled)] cursor-not-allowed opacity-40",
           today: "font-bold underline"
         }
       }
     },
     months: {
       items: {
-        base: "grid w-64 grid-cols-4",
+        base: "grid w-56 grid-cols-4",
         item: {
-          base: "block flex-1 cursor-pointer rounded-app border-0 text-center text-sm font-semibold leading-9 text-[var(--foreground-primary)] hover:bg-[var(--background-surface-hover)]",
+          base: "block flex-1 cursor-pointer rounded-md border-0 text-center text-xs font-semibold leading-7 text-[var(--foreground-primary)] hover:bg-[var(--background-surface-hover)]",
           selected: "bg-[var(--accent-brand)] text-[var(--button-primary-text)]",
-          disabled: "text-[var(--foreground-disabled)]"
+          disabled: "text-[var(--foreground-disabled)] opacity-40"
         }
       }
     },
     years: {
       items: {
-        base: "grid w-64 grid-cols-4",
+        base: "grid w-56 grid-cols-4",
         item: {
-          base: "block flex-1 cursor-pointer rounded-app border-0 text-center text-sm font-semibold leading-9 text-[var(--foreground-primary)] hover:bg-[var(--background-surface-hover)]",
+          base: "block flex-1 cursor-pointer rounded-md border-0 text-center text-xs font-semibold leading-7 text-[var(--foreground-primary)] hover:bg-[var(--background-surface-hover)]",
           selected: "bg-[var(--accent-brand)] text-[var(--button-primary-text)]",
-          disabled: "text-[var(--foreground-disabled)]"
+          disabled: "text-[var(--foreground-disabled)] opacity-40"
         }
       }
     },
     decades: {
       items: {
-        base: "grid w-64 grid-cols-4",
+        base: "grid w-56 grid-cols-4",
         item: {
-          base: "block flex-1 cursor-pointer rounded-app border-0 text-center text-sm font-semibold leading-9 text-[var(--foreground-primary)] hover:bg-[var(--background-surface-hover)]",
+          base: "block flex-1 cursor-pointer rounded-md border-0 text-center text-xs font-semibold leading-7 text-[var(--foreground-primary)] hover:bg-[var(--background-surface-hover)]",
           selected: "bg-[var(--accent-brand)] text-[var(--button-primary-text)]",
-          disabled: "text-[var(--foreground-disabled)]"
+          disabled: "text-[var(--foreground-disabled)] opacity-40"
         }
       }
     }
@@ -1818,8 +1818,65 @@ const datepickerInputTheme = {
   }
 };
 
+const CALENDAR_MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
 function ThemedDatepicker({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   const dateValue = value ? new Date(value + "T00:00:00") : null;
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  const [viewMonth, setViewMonth] = useState<{ year: number; month: number }>(() => {
+    const d = dateValue ?? new Date();
+    return { year: d.getFullYear(), month: d.getMonth() };
+  });
+
+  // Sync view month when the selected date changes externally
+  useEffect(() => {
+    if (dateValue) setViewMonth({ year: dateValue.getFullYear(), month: dateValue.getMonth() });
+  }, [value]);
+
+  // Watch the calendar popup: detect month navigation and fix grid rows
+  useEffect(() => {
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return;
+
+    function update() {
+      // Read current view month from the header "view" button text ("January 2026" etc.)
+      const viewBtn = wrapper!.querySelector(".datepicker-view-btn");
+      if (viewBtn?.textContent) {
+        const parts = viewBtn.textContent.trim().split(" ");
+        if (parts.length === 2) {
+          const monthIdx = CALENDAR_MONTHS.indexOf(parts[0]);
+          const year = parseInt(parts[1]);
+          if (monthIdx >= 0 && year > 1900) {
+            setViewMonth(prev => (prev.year === year && prev.month === monthIdx ? prev : { year, month: monthIdx }));
+          }
+        }
+      }
+
+      // Dynamically trim extra rows: hide cells beyond the last in-month cell
+      const grid = wrapper!.querySelector(".datepicker-days-grid");
+      if (!grid) return;
+      const cells = grid.querySelectorAll("button");
+      if (cells.length !== 42) return;
+      let lastEnabled = -1;
+      for (let i = 41; i >= 0; i--) {
+        if (!(cells[i] as HTMLButtonElement).disabled) { lastEnabled = i; break; }
+      }
+      if (lastEnabled < 0) return;
+      const rows = Math.ceil((lastEnabled + 1) / 7);
+      for (let i = 0; i < 42; i++) {
+        (cells[i] as HTMLElement).style.display = i >= rows * 7 ? "none" : "";
+      }
+    }
+
+    const observer = new MutationObserver(update);
+    observer.observe(wrapper, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
+
+  function filterDate(date: Date): boolean {
+    return date.getFullYear() === viewMonth.year && date.getMonth() === viewMonth.month;
+  }
 
   function handleChange(date: Date | null) {
     if (!date) { onChange(""); return; }
@@ -1830,10 +1887,12 @@ function ThemedDatepicker({ value, onChange }: { value: string; onChange: (value
   }
 
   return (
-    <div className="themed-datepicker">
+    <div className="themed-datepicker" ref={wrapperRef}>
       <Datepicker
         value={dateValue}
         onChange={handleChange}
+        filterDate={filterDate}
+        label=""
         showTodayButton
         showClearButton
         theme={{ ...datepickerTheme, root: { ...datepickerTheme.root, input: datepickerInputTheme } } as Parameters<typeof Datepicker>[0]["theme"]}
